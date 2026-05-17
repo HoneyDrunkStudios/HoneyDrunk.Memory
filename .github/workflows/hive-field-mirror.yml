@@ -1,0 +1,17 @@
+name: Hive Field Mirror
+
+on:
+  issues:
+    types: [opened, labeled, unlabeled, edited]
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  mirror:
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/hive-field-mirror.yml@main
+    secrets:
+      app-id: ${{ secrets.HIVE_APP_ID }}
+      app-private-key: ${{ secrets.HIVE_APP_PRIVATE_KEY }}
+      hive-field-mirror-token: ${{ secrets.HIVE_FIELD_MIRROR_TOKEN }}

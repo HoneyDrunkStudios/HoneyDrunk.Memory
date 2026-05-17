@@ -1,0 +1,73 @@
+name: Publish to NuGet
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (without v prefix, for example 0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  preflight:
+    name: Workflow preflight
+    runs-on: ubuntu-latest
+    outputs:
+      solution-exists: ${{ steps.detect.outputs.solution-exists }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect solution scaffold
+        id: detect
+        shell: bash
+        run: |
+          if [[ -f './HoneyDrunk.Memory.slnx' ]]; then
+            echo 'solution-exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'solution-exists=false' >> "$GITHUB_OUTPUT"
+            echo 'No ./HoneyDrunk.Memory.slnx found yet; skipping publish until the repo scaffold lands.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == 'workflow_dispatch' ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Build, Pack, and Publish
+    needs: preflight
+    if: needs.preflight.outputs.solution-exists == 'true'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/release.yml@main
+    with:
+      dotnet-version: '10.0.x'
+      configuration: 'Release'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Memory.slnx'
+      package-version: ${{ needs.preflight.outputs.version }}
+      enable-nuget-publish: true
+      nuget-source: 'https://api.nuget.org/v3/index.json'
+      actions-ref: 'main'
+    secrets:
+      nuget-api-key: ${{ secrets.NUGET_API_KEY }}

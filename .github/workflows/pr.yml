@@ -1,0 +1,52 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Workflow preflight
+    runs-on: ubuntu-latest
+    outputs:
+      solution-exists: ${{ steps.detect.outputs.solution-exists }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect solution scaffold
+        id: detect
+        shell: bash
+        run: |
+          if [[ -f './HoneyDrunk.Memory.slnx' ]]; then
+            echo 'solution-exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'solution-exists=false' >> "$GITHUB_OUTPUT"
+            echo 'No ./HoneyDrunk.Memory.slnx found yet; skipping .NET PR validation until the repo scaffold lands.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  pr-core:
+    name: PR Core
+    needs: preflight
+    if: needs.preflight.outputs.solution-exists == 'true'
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+      security-events: write
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@main
+    with:
+      dotnet-version: '10.0.x'
+      configuration: 'Release'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Memory.slnx'
+      enable-secret-scan: true
+      enable-accessibility-check: false
+      post-pr-summary: true
+      actions-ref: 'main'
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
