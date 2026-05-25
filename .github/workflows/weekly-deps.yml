@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   preflight:
@@ -44,4 +45,4 @@ jobs:
       create-update-prs: true
       actions-ref: 'main'
     secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+      github-token: ${{ secrets.HIVE_FIELD_MIRROR_TOKEN }}
