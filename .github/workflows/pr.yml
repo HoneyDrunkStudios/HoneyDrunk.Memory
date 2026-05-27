@@ -10,28 +10,18 @@ permissions:
 jobs:
   preflight:
     name: Workflow preflight
-    runs-on: ubuntu-latest
-    outputs:
-      solution-exists: ${{ steps.detect.outputs.solution-exists }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Detect solution scaffold
-        id: detect
-        shell: bash
-        run: |
-          if [[ -f './HoneyDrunk.Memory.slnx' ]]; then
-            echo 'solution-exists=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'solution-exists=false' >> "$GITHUB_OUTPUT"
-            echo 'No ./HoneyDrunk.Memory.slnx found yet; skipping .NET PR validation until the repo scaffold lands.' >> "$GITHUB_STEP_SUMMARY"
-          fi
+    permissions:
+      contents: read
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-solution-preflight.yml@main
+    with:
+      runs-on: 'ubuntu-latest'
+      project-path: './HoneyDrunk.Memory.slnx'
+      missing-message: 'No ./HoneyDrunk.Memory.slnx found yet; skipping .NET PR validation until the repo scaffold lands.'
 
   pr-core:
     name: PR Core
     needs: preflight
-    if: needs.preflight.outputs.solution-exists == 'true'
+    if: needs.preflight.outputs.project-exists == 'true'
     permissions:
       contents: read
       checks: write
