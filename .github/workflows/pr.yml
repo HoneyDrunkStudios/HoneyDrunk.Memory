@@ -35,6 +35,7 @@ jobs:
     permissions:
       contents: read
       checks: write
+      issues: write
       pull-requests: write
       security-events: write
     uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@main
