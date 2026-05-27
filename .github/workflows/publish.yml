@@ -32,6 +32,7 @@ jobs:
     permissions: {}
     outputs:
       version: ${{ steps.version.outputs.version }}
+      version_tag: ${{ steps.version.outputs.version_tag }}
     steps:
       - name: Determine version
         id: version
@@ -41,21 +42,24 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == 'workflow_dispatch' ]]; then
             VERSION="$WORKFLOW_DISPATCH_VERSION"
+            VERSION_TAG="v${VERSION}"
           else
             VERSION="${GITHUB_REF#refs/tags/v}"
+            VERSION_TAG="${GITHUB_REF#refs/tags/}"
           fi
           if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)([.]((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$ ]]; then
             echo "::error::Version must be a NuGet package version without build metadata (for example 1.2.3 or 1.2.3-preview.1)."
             exit 1
           fi
           printf 'version=%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
+          printf 'version_tag=%s\n' "$VERSION_TAG" >> "$GITHUB_OUTPUT"
 
   publish:
     name: Build, Pack, and Publish
     needs: [preflight, prepare]
     if: needs.preflight.outputs['project-exists'] == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
       security-events: write
@@ -69,6 +73,12 @@ jobs:
       package-version: ${{ needs.prepare.outputs.version }}
       enable-nuget-publish: true
       nuget-source: 'https://api.nuget.org/v3/index.json'
+      create-github-release: true
+      github-release-tag: ${{ needs.prepare.outputs.version_tag }}
+      release-product-name: HoneyDrunk.Memory
+      release-nuget-packages: |
+        HoneyDrunk.Memory
+      release-docs-url: 'https://github.com/HoneyDrunkStudios/HoneyDrunk.Memory#readme'
       actions-ref: 'main'
     secrets:
       nuget-api-key: ${{ secrets.NUGET_API_KEY }}
