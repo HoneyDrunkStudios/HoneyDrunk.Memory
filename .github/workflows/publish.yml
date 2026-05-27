@@ -11,48 +11,49 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
-  packages: write
-  id-token: write
+permissions: {}
 
 jobs:
   preflight:
     name: Workflow preflight
+    permissions:
+      contents: read
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-solution-preflight.yml@main
+    with:
+      runs-on: 'ubuntu-latest'
+      project-path: './HoneyDrunk.Memory.slnx'
+      missing-message: 'No ./HoneyDrunk.Memory.slnx found yet; skipping publish until the repo scaffold lands.'
+
+  prepare:
+    name: Prepare Release
+    needs: preflight
+    if: needs.preflight.outputs['project-exists'] == 'true'
     runs-on: ubuntu-latest
+    permissions: {}
     outputs:
-      solution-exists: ${{ steps.detect.outputs.solution-exists }}
       version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Detect solution scaffold
-        id: detect
-        shell: bash
-        run: |
-          if [[ -f './HoneyDrunk.Memory.slnx' ]]; then
-            echo 'solution-exists=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'solution-exists=false' >> "$GITHUB_OUTPUT"
-            echo 'No ./HoneyDrunk.Memory.slnx found yet; skipping publish until the repo scaffold lands.' >> "$GITHUB_STEP_SUMMARY"
-          fi
-
       - name: Determine version
         id: version
         shell: bash
+        env:
+          WORKFLOW_DISPATCH_VERSION: ${{ github.event.inputs.version }}
         run: |
           if [[ "${{ github.event_name }}" == 'workflow_dispatch' ]]; then
-            VERSION="${{ github.event.inputs.version }}"
+            VERSION="$WORKFLOW_DISPATCH_VERSION"
           else
             VERSION="${GITHUB_REF#refs/tags/v}"
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)([.]((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$ ]]; then
+            echo "::error::Version must be a NuGet package version without build metadata (for example 1.2.3 or 1.2.3-preview.1)."
+            exit 1
+          fi
+          printf 'version=%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
 
   publish:
     name: Build, Pack, and Publish
-    needs: preflight
-    if: needs.preflight.outputs.solution-exists == 'true'
+    needs: [preflight, prepare]
+    if: needs.preflight.outputs['project-exists'] == 'true'
     permissions:
       contents: read
       packages: write
@@ -65,7 +66,7 @@ jobs:
       runs-on: 'ubuntu-latest'
       working-directory: '.'
       project-path: './HoneyDrunk.Memory.slnx'
-      package-version: ${{ needs.preflight.outputs.version }}
+      package-version: ${{ needs.prepare.outputs.version }}
       enable-nuget-publish: true
       nuget-source: 'https://api.nuget.org/v3/index.json'
       actions-ref: 'main'
