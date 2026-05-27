@@ -24,7 +24,7 @@ jobs:
   nightly-security:
     name: Nightly Security
     needs: preflight
-    if: needs.preflight.outputs.project-exists == 'true'
+    if: needs.preflight.outputs['project-exists'] == 'true'
     uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/nightly-security.yml@main
     with:
       dotnet-version: '10.0.x'

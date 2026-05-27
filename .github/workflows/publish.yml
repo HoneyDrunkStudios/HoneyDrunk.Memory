@@ -40,7 +40,7 @@ jobs:
           else
             VERSION="${GITHUB_REF#refs/tags/v}"
           fi
-          if [[ ! "$VERSION" =~ ^[0-9]+[.][0-9]+[.][0-9]+(-[0-9A-Za-z-]+([.][0-9A-Za-z-]+)*)?([+][0-9A-Za-z-]+([.][0-9A-Za-z-]+)*)?$ ]]; then
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)([.]((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?([+][0-9A-Za-z-]+([.][0-9A-Za-z-]+)*)?$ ]]; then
             echo "::error::Version must be SemVer-compatible (for example 1.2.3, 1.2.3-preview.1, or 1.2.3-preview.1+build.5): $VERSION"
             exit 1
           fi
@@ -49,7 +49,7 @@ jobs:
   publish:
     name: Build, Pack, and Publish
     needs: [preflight, prepare]
-    if: needs.preflight.outputs.project-exists == 'true'
+    if: needs.preflight.outputs['project-exists'] == 'true'
     permissions:
       contents: read
       packages: write

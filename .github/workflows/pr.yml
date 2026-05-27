@@ -21,7 +21,7 @@ jobs:
   pr-core:
     name: PR Core
     needs: preflight
-    if: needs.preflight.outputs.project-exists == 'true'
+    if: needs.preflight.outputs['project-exists'] == 'true'
     permissions:
       contents: read
       checks: write
