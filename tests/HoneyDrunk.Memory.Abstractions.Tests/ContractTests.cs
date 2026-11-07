@@ -128,9 +128,10 @@ public sealed class ContractTests
             return false;
         }
 
+        var first = items[0];
         try
         {
-            items[0] = items[0];
+            items[0] = first;
             return true;
         }
         catch (NotSupportedException)
