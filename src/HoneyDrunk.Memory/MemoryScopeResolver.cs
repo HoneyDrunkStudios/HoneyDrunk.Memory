@@ -4,6 +4,8 @@ using HoneyDrunk.Memory.Abstractions;
 using HoneyDrunk.Operator.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace HoneyDrunk.Memory;
 
@@ -27,6 +29,10 @@ public sealed class MemoryScopeResolver(
     ILogger<MemoryScopeResolver> logger) : IMemoryScopeResolver
 {
     private const string EscalateAction = "memory.escalate";
+    private const string OperationalReadAction = "memory.operational-read";
+
+    private static readonly TimeSpan MinimumOperationalExpiry = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan MaximumOperationalExpiry = TimeSpan.FromDays(7);
 
     private readonly IAuthorizationPolicy policy = policy ?? throw new ArgumentNullException(nameof(policy));
     private readonly IApprovalGate approvalGate = approvalGate ?? throw new ArgumentNullException(nameof(approvalGate));
@@ -44,12 +50,42 @@ public sealed class MemoryScopeResolver(
     }
 
     /// <inheritdoc />
-    public Task<MemoryOperationalScopeResult> RequestOperationalScopeAsync(MemoryOperationalReadRequest request, CancellationToken cancellationToken = default)
+    public async Task<MemoryOperationalScopeResult> RequestOperationalScopeAsync(MemoryOperationalReadRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        _ = this.approvalGate;
-        _ = this.timeProvider;
-        throw new NotSupportedException("Operational reads are not available yet.");
+        cancellationToken.ThrowIfCancellationRequested();
+        var approvalId = OperationalApprovalId.For(request);
+        using var activity = this.telemetry.Start(
+            MemoryTelemetry.OperationalReadActivity,
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                [MemoryTelemetry.Operation] = "operational_read",
+                [MemoryTelemetry.ReadableScopeCount] = request.Scopes.Count,
+            });
+        var now = this.timeProvider.GetUtcNow();
+        if (request.Expiry <= now)
+        {
+            return this.OperationalResult(approvalId, MemoryApprovalStatus.Expired, request, activity);
+        }
+
+        var ahead = request.Expiry - now;
+        if (ahead < MinimumOperationalExpiry || ahead > MaximumOperationalExpiry)
+        {
+            activity?.SetTag(MemoryTelemetry.Outcome, MemoryTelemetry.Error);
+            throw new ArgumentException("The expiry must be 1 minute to 7 days ahead.", nameof(request));
+        }
+
+        var decision = await this.approvalGate.CheckStatusAsync(approvalId, cancellationToken).ConfigureAwait(false)
+            ?? await this.approvalGate.RequestAsync(this.ToApprovalRequest(approvalId, request), cancellationToken).ConfigureAwait(false);
+        var status = decision.Outcome switch
+        {
+            ApprovalOutcome.Pending => MemoryApprovalStatus.Pending,
+            ApprovalOutcome.Approved => MemoryApprovalStatus.Approved,
+            ApprovalOutcome.Expired => MemoryApprovalStatus.Expired,
+            ApprovalOutcome.Denied => MemoryApprovalStatus.Denied,
+            _ => MemoryApprovalStatus.Denied,
+        };
+        return this.OperationalResult(approvalId, status, request, activity);
     }
 
     /// <summary>Widens an agent scope after Auth allows every added key.</summary>
@@ -130,6 +166,29 @@ public sealed class MemoryScopeResolver(
 
     private static string DeniedMessage(IReadOnlyList<MemoryScopeKey> denied, int requested, string reason) =>
         $"Memory scope escalation was denied for {denied.Count} of {requested} keys ({reason}): {string.Join(", ", denied)}.";
+
+    private MemoryOperationalScopeResult OperationalResult(string approvalId, MemoryApprovalStatus status, MemoryOperationalReadRequest request, Activity? activity)
+    {
+        activity?.SetTag(MemoryTelemetry.ApprovalStatus, status.ToString());
+        activity?.SetTag(MemoryTelemetry.Outcome, status == MemoryApprovalStatus.Approved ? MemoryTelemetry.Success : MemoryTelemetry.Denied);
+        MemoryLog.OperationalReadStatus(this.logger, approvalId, status);
+        var scope = status == MemoryApprovalStatus.Approved ? IssuedMemoryScope.ForOperation(this, request.Scopes, request.Expiry) : null;
+        return new MemoryOperationalScopeResult(status, approvalId, scope);
+    }
+
+    private ApprovalRequest ToApprovalRequest(string approvalId, MemoryOperationalReadRequest request) =>
+        new(
+            approvalId,
+            request.RequesterId,
+            OperationalReadAction,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["scope_count"] = request.Scopes.Count.ToString(CultureInfo.InvariantCulture),
+                ["purpose"] = request.Purpose,
+            },
+            string.Join(" ", request.Scopes.Select(key => key.ToString()).Order(StringComparer.Ordinal)),
+            request.Expiry,
+            request.CorrelationId);
 
     private AuthenticatedIdentity ToIdentity(MemoryCaller caller) =>
         new(
