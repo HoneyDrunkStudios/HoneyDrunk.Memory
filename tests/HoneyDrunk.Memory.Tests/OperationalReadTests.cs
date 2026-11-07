@@ -161,11 +161,51 @@ public sealed class OperationalReadTests
         Assert.Equal("quarterly audit", raised.Context["purpose"]);
     }
 
+    /// <summary>A failing or cancelled gate call fails closed and still records an outcome.</summary>
+    /// <param name="failOnRequest">Whether the gate fails on RequestAsync rather than CheckStatusAsync.</param>
+    /// <param name="cancel">Whether the gate cancels instead of failing.</param>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task Gate_failure_is_tagged_logged_and_rethrown(bool failOnRequest, bool cancel)
+    {
+        var telemetry = new RecordingTelemetryActivityFactory();
+        var log = new ListLogger<MemoryScopeResolver>();
+        var failing = new ThrowingApprovalGate(failOnRequest, cancel ? new OperationCanceledException() : new InvalidOperationException("gate store unavailable"));
+        var resolver = new MemoryScopeResolver(this.policy, failing, Options.Create(new MemoryAuthorizationOptions()), telemetry, this.time, log);
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(() => resolver.RequestOperationalScopeAsync(Request([Key(Project1)])));
+
+        var activity = Assert.Single(telemetry.Activities);
+        if (cancel)
+        {
+            Assert.IsAssignableFrom<OperationCanceledException>(error);
+            Assert.Contains(activity.TagObjects, tag => tag.Key == "memory.outcome" && Equals(tag.Value, "cancelled"));
+        }
+        else
+        {
+            Assert.IsType<InvalidOperationException>(error);
+            Assert.Contains(activity.TagObjects, tag => tag.Key == "memory.outcome" && Equals(tag.Value, "error"));
+            Assert.Contains(log.Entries, entry => entry.message.Contains(nameof(InvalidOperationException), StringComparison.Ordinal));
+            Assert.DoesNotContain(log.Entries, entry => entry.message.Contains("gate store unavailable", StringComparison.Ordinal));
+        }
+    }
+
     private static MemoryOperationalReadRequest Request(MemoryScopeKey[] keys, string purpose = "quarterly audit", DateTimeOffset? expiry = null, string requester = "operator-1") =>
         new(requester, keys, purpose, expiry ?? Now.AddHours(2), "corr-1");
 
     private MemoryScopeResolver Resolver() =>
         new(this.policy, this.gate, Options.Create(new MemoryAuthorizationOptions()), new RecordingTelemetryActivityFactory(), this.time, new ListLogger<MemoryScopeResolver>());
+
+    private sealed class ThrowingApprovalGate(bool failOnRequest, Exception error) : IApprovalGate
+    {
+        public Task<ApprovalDecision> RequestAsync(ApprovalRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromException<ApprovalDecision>(error);
+
+        public Task<ApprovalDecision?> CheckStatusAsync(string approvalId, CancellationToken cancellationToken = default) =>
+            failOnRequest ? Task.FromResult<ApprovalDecision?>(null) : Task.FromException<ApprovalDecision?>(error);
+    }
 
     private sealed class CountingApprovalGate(InMemoryApprovalGate inner) : IApprovalGate
     {

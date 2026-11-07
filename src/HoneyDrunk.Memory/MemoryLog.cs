@@ -26,4 +26,7 @@ internal static partial class MemoryLog
 
     [LoggerMessage(EventId = 7, Level = LogLevel.Information, Message = "The summary from model {ModelId} was cut to {Length} characters")]
     public static partial void SummaryTruncated(ILogger logger, string modelId, int length);
+
+    [LoggerMessage(EventId = 8, Level = LogLevel.Warning, Message = "The approval gate failed for operational memory read {ApprovalId} ({ExceptionType}); no scope is issued")]
+    public static partial void ApprovalGateFailed(ILogger logger, string approvalId, string exceptionType);
 }

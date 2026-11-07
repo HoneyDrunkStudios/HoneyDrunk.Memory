@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace HoneyDrunk.Memory.Abstractions;
 
 /// <summary>An entry to be written. The store assigns its id, time and scope key.</summary>
@@ -17,4 +19,9 @@ public sealed record NewMemoryEntry(string Kind, string Content, IReadOnlyList<s
 
     /// <summary>Gets the normalized tags.</summary>
     public IReadOnlyList<string> Tags { get; } = MemoryValidation.Tags(Tags, nameof(Tags));
+
+    /// <summary>Returns metadata only: the kind, content length and tag count, never the content or tags (invariant 141).</summary>
+    /// <returns>The metadata text.</returns>
+    public override string ToString() =>
+        string.Create(CultureInfo.InvariantCulture, $"NewMemoryEntry {{ Kind = {this.Kind}, ContentLength = {this.Content.Length}, TagCount = {this.Tags.Count} }}");
 }

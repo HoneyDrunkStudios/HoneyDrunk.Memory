@@ -31,6 +31,9 @@ public sealed class MemoryScopeResolver(
     private const string EscalateAction = "memory.escalate";
     private const string OperationalReadAction = "memory.operational-read";
 
+    // Each added key is one Auth evaluation (and one audit append), so one call is bounded like an operational read.
+    private const int MaxEscalationKeys = MemoryOperationalReadRequest.MaxScopes;
+
     private static readonly TimeSpan MinimumOperationalExpiry = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan MaximumOperationalExpiry = TimeSpan.FromDays(7);
 
@@ -75,8 +78,24 @@ public sealed class MemoryScopeResolver(
             throw new ArgumentException("The expiry must be 1 minute to 7 days ahead.", nameof(request));
         }
 
-        var decision = await this.approvalGate.CheckStatusAsync(approvalId, cancellationToken).ConfigureAwait(false)
-            ?? await this.approvalGate.RequestAsync(this.ToApprovalRequest(approvalId, request), cancellationToken).ConfigureAwait(false);
+        ApprovalDecision decision;
+        try
+        {
+            decision = await this.approvalGate.CheckStatusAsync(approvalId, cancellationToken).ConfigureAwait(false)
+                ?? await this.approvalGate.RequestAsync(this.ToApprovalRequest(approvalId, request), cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            activity?.SetTag(MemoryTelemetry.Outcome, MemoryTelemetry.Cancelled);
+            throw;
+        }
+        catch (Exception error)
+        {
+            activity?.SetTag(MemoryTelemetry.Outcome, MemoryTelemetry.Error);
+            MemoryLog.ApprovalGateFailed(this.logger, approvalId, error.GetType().Name);
+            throw;
+        }
+
         var status = decision.Outcome switch
         {
             ApprovalOutcome.Pending => MemoryApprovalStatus.Pending,
@@ -110,6 +129,11 @@ public sealed class MemoryScopeResolver(
         if (keys.Length == 0)
         {
             throw new ArgumentException("At least one key other than the home key is required.", nameof(additionalScopes));
+        }
+
+        if (keys.Length > MaxEscalationKeys)
+        {
+            throw new ArgumentException("One escalation adds at most 50 distinct keys beyond the home key.", nameof(additionalScopes));
         }
 
         cancellationToken.ThrowIfCancellationRequested();

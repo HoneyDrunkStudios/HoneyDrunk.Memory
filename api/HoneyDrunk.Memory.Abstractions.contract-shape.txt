@@ -32,6 +32,7 @@ type HoneyDrunk.Memory.Abstractions.MemoryCaller: sealed class implements System
   HoneyDrunk.Memory.Abstractions.MemoryCaller public property System.String SubjectId { get; }
 type HoneyDrunk.Memory.Abstractions.MemoryEntry: sealed class implements System.IEquatable<HoneyDrunk.Memory.Abstractions.MemoryEntry>
   HoneyDrunk.Memory.Abstractions.MemoryEntry public ctor(System.String Id, HoneyDrunk.Memory.Abstractions.MemoryScopeKey Scope, System.String Kind, System.String Content, System.Collections.Generic.IReadOnlyList<System.String> Tags, System.DateTimeOffset WrittenAt, System.String? EmbeddingModelId, System.Collections.Generic.IReadOnlyList<System.String> SummaryOf, System.String? SupersededBy)
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public override method System.String ToString()
   HoneyDrunk.Memory.Abstractions.MemoryEntry public property HoneyDrunk.Memory.Abstractions.MemoryScopeKey Scope { get; init; }
   HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.Collections.Generic.IReadOnlyList<System.String> SummaryOf { get; init; }
   HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.Collections.Generic.IReadOnlyList<System.String> Tags { get; init; }
@@ -80,6 +81,7 @@ type HoneyDrunk.Memory.Abstractions.MemorySummaryRequest: sealed class implement
   HoneyDrunk.Memory.Abstractions.MemorySummaryRequest public property System.String SummaryKind { get; }
 type HoneyDrunk.Memory.Abstractions.NewMemoryEntry: sealed class implements System.IEquatable<HoneyDrunk.Memory.Abstractions.NewMemoryEntry>
   HoneyDrunk.Memory.Abstractions.NewMemoryEntry public ctor(System.String Kind, System.String Content, System.Collections.Generic.IReadOnlyList<System.String> Tags)
+  HoneyDrunk.Memory.Abstractions.NewMemoryEntry public override method System.String ToString()
   HoneyDrunk.Memory.Abstractions.NewMemoryEntry public property System.Collections.Generic.IReadOnlyList<System.String> Tags { get; }
   HoneyDrunk.Memory.Abstractions.NewMemoryEntry public property System.String Content { get; }
   HoneyDrunk.Memory.Abstractions.NewMemoryEntry public property System.String Kind { get; }

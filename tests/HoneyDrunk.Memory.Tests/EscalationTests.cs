@@ -175,6 +175,21 @@ public sealed class EscalationTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scope.EscalateAsync([other]));
     }
 
+    /// <summary>More than fifty distinct added keys are rejected before Auth is asked; fifty are allowed.</summary>
+    [Fact]
+    public async Task Escalation_rejects_more_than_fifty_keys_without_auth_calls()
+    {
+        var keys = Enumerable.Range(0, 51).Select(i => Key(Project2, $"agent-{i}")).ToArray();
+        var scope = this.Resolver().ResolveAgentScope(Key(Project1), Caller([.. keys.Select(ReadScope)]));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => scope.EscalateAsync([.. keys, .. keys, Key(Project1)]));
+        Assert.Empty(this.policy.Calls);
+
+        var widened = await scope.EscalateAsync([.. keys.Take(50), Key(Project1)]);
+        Assert.Equal(51, widened.Readable.Count);
+        Assert.Equal(50, this.policy.Calls.Count);
+    }
+
     /// <summary>An escalation that adds no key is rejected.</summary>
     [Fact]
     public async Task Escalation_needs_a_key_beyond_home()

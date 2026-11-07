@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace HoneyDrunk.Memory.Abstractions;
 
 /// <summary>A stored memory entry, as returned by <c>IMemoryStore</c>.</summary>
@@ -24,4 +26,15 @@ public sealed record MemoryEntry(
     DateTimeOffset WrittenAt,
     string? EmbeddingModelId,
     IReadOnlyList<string> SummaryOf,
-    string? SupersededBy);
+    string? SupersededBy)
+{
+    /// <summary>
+    /// Returns metadata only: the id, scope key, kind, content length, tag count, write time,
+    /// embedding model, summary source count and superseding id. Never the content or tags (invariant 141).
+    /// </summary>
+    /// <returns>The metadata text.</returns>
+    public override string ToString() =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"MemoryEntry {{ Id = {this.Id}, Scope = {this.Scope}, Kind = {this.Kind}, ContentLength = {this.Content?.Length ?? 0}, TagCount = {this.Tags?.Count ?? 0}, WrittenAt = {this.WrittenAt:O}, EmbeddingModelId = {this.EmbeddingModelId}, SummaryOfCount = {this.SummaryOf?.Count ?? 0}, SupersededBy = {this.SupersededBy} }}");
+}

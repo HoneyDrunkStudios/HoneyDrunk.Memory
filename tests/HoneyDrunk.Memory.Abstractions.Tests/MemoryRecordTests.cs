@@ -149,4 +149,44 @@ public sealed class MemoryRecordTests
 
         Assert.Equal(["memory.read:a"], caller.Scopes);
     }
+
+    /// <summary>A new entry's text carries metadata only, never its content or tags (invariant 141).</summary>
+    [Fact]
+    public void NewEntry_text_omits_content_and_tags()
+    {
+        var text = new NewMemoryEntry("note", "SENTINEL-CONTENT-5510", ["sentinel-tag-5511", "other"]).ToString();
+
+        Assert.DoesNotContain("SENTINEL-CONTENT-5510", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sentinel-tag-5511", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("note", text, StringComparison.Ordinal);
+        Assert.Contains("ContentLength = 21", text, StringComparison.Ordinal);
+        Assert.Contains("TagCount = 2", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>A stored entry's text carries metadata only, never its content or tags (invariant 141).</summary>
+    [Fact]
+    public void Entry_text_omits_content_and_tags()
+    {
+        var key = new MemoryScopeKey(new TenantId(Tenant), new ProjectId(Project), "agent-a");
+        var entry = new MemoryEntry(
+            "0123456789abcdef0123456789abcdef",
+            key,
+            "note",
+            "SENTINEL-CONTENT-5510",
+            ["sentinel-tag-5511"],
+            new DateTimeOffset(2026, 11, 7, 9, 0, 0, TimeSpan.Zero),
+            "embedding-model-1",
+            ["fedcba9876543210fedcba9876543210"],
+            SupersededBy: null);
+
+        var text = entry.ToString();
+
+        Assert.DoesNotContain("SENTINEL-CONTENT-5510", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sentinel-tag-5511", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("0123456789abcdef0123456789abcdef", text, StringComparison.Ordinal);
+        Assert.Contains(key.ToString(), text, StringComparison.Ordinal);
+        Assert.Contains("ContentLength = 21", text, StringComparison.Ordinal);
+        Assert.Contains("TagCount = 1", text, StringComparison.Ordinal);
+        Assert.Contains("EmbeddingModelId = embedding-model-1", text, StringComparison.Ordinal);
+    }
 }
