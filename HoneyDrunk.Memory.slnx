@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/HoneyDrunk.Memory.Abstractions/HoneyDrunk.Memory.Abstractions.csproj" />
+    <Project Path="src/HoneyDrunk.Memory.Providers.InMemory/HoneyDrunk.Memory.Providers.InMemory.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/HoneyDrunk.Memory.Abstractions.Tests/HoneyDrunk.Memory.Abstractions.Tests.csproj" />
+    <Project Path="tests/HoneyDrunk.Memory.Providers.InMemory.Tests/HoneyDrunk.Memory.Providers.InMemory.Tests.csproj" />
   </Folder>
 </Solution>
