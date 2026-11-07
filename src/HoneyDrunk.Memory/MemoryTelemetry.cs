@@ -85,6 +85,9 @@ internal static class MemoryTelemetry
     /// <summary>The error outcome.</summary>
     public const string Error = "error";
 
+    /// <summary>The cancelled outcome.</summary>
+    public const string Cancelled = "cancelled";
+
     /// <summary>Starts an activity carrying the scope's coordinates.</summary>
     /// <param name="telemetry">The activity factory.</param>
     /// <param name="activityName">The activity name.</param>
