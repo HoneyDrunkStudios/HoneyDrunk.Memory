@@ -87,7 +87,9 @@ jobs:
       github-release-tag: ${{ needs.prepare.outputs.version_tag }}
       release-product-name: HoneyDrunk.Memory
       release-nuget-packages: |
+        HoneyDrunk.Memory.Abstractions
         HoneyDrunk.Memory
+        HoneyDrunk.Memory.Providers.InMemory
       release-docs-url: 'https://github.com/HoneyDrunkStudios/HoneyDrunk.Memory#readme'
       actions-ref: 'e3aa37c20dffe55155d95793465bcb6d94f280a2'
 
@@ -126,7 +128,10 @@ jobs:
       with:
         user: tatteddev
         expected-version: ${{ needs.prepare.outputs.version }}
-        expected-packages: HoneyDrunk.Memory
+        expected-packages: |-
+          HoneyDrunk.Memory.Abstractions
+          HoneyDrunk.Memory
+          HoneyDrunk.Memory.Providers.InMemory
     - name: Generate release notes
       id: notes
       uses: ./.github/actions-repo/.github/actions/release/generate-notes
@@ -134,7 +139,9 @@ jobs:
         version: ${{ needs.prepare.outputs.version }}
         product-name: HoneyDrunk.Memory
         nuget-packages: |
+          HoneyDrunk.Memory.Abstractions
           HoneyDrunk.Memory
+          HoneyDrunk.Memory.Providers.InMemory
         docs-url: https://github.com/HoneyDrunkStudios/HoneyDrunk.Memory#readme
     - name: Create GitHub Release after successful publication
       uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64

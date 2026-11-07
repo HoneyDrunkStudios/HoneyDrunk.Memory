@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/HoneyDrunk.Memory.Abstractions.Tests/HoneyDrunk.Memory.Abstractions.Tests.csproj" />
+    <Project Path="tests/HoneyDrunk.Memory.Canary/HoneyDrunk.Memory.Canary.csproj" />
     <Project Path="tests/HoneyDrunk.Memory.Providers.InMemory.Tests/HoneyDrunk.Memory.Providers.InMemory.Tests.csproj" />
     <Project Path="tests/HoneyDrunk.Memory.Tests/HoneyDrunk.Memory.Tests.csproj" />
   </Folder>
