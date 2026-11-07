@@ -1,0 +1,85 @@
+# package: HoneyDrunk.Memory.Abstractions
+# version: 0.1.0
+# roots: IMemoryStore, IMemoryScope, IMemorySummarizer, MemoryEntry, IMemoryScopeResolver
+type HoneyDrunk.Memory.Abstractions.IMemoryScope: interface
+  HoneyDrunk.Memory.Abstractions.IMemoryScope public method System.Threading.Tasks.Task<HoneyDrunk.Memory.Abstractions.IMemoryScope> EscalateAsync(System.Collections.Generic.IReadOnlyList<HoneyDrunk.Memory.Abstractions.MemoryScopeKey> additionalScopes, System.Threading.CancellationToken cancellationToken = default)
+  HoneyDrunk.Memory.Abstractions.IMemoryScope public property HoneyDrunk.Memory.Abstractions.MemoryScopeKey Home { get; }
+  HoneyDrunk.Memory.Abstractions.IMemoryScope public property HoneyDrunk.Memory.Abstractions.MemoryScopeKind Kind { get; }
+  HoneyDrunk.Memory.Abstractions.IMemoryScope public property System.Boolean CanWrite { get; }
+  HoneyDrunk.Memory.Abstractions.IMemoryScope public property System.Collections.Generic.IReadOnlyList<HoneyDrunk.Memory.Abstractions.MemoryScopeKey> Readable { get; }
+  HoneyDrunk.Memory.Abstractions.IMemoryScope public property System.DateTimeOffset? ExpiresAt { get; }
+type HoneyDrunk.Memory.Abstractions.IMemoryScopeResolver: interface
+  HoneyDrunk.Memory.Abstractions.IMemoryScopeResolver public method HoneyDrunk.Memory.Abstractions.IMemoryScope ResolveAgentScope(HoneyDrunk.Memory.Abstractions.MemoryScopeKey home, HoneyDrunk.Memory.Abstractions.MemoryCaller caller)
+  HoneyDrunk.Memory.Abstractions.IMemoryScopeResolver public method System.Threading.Tasks.Task<HoneyDrunk.Memory.Abstractions.MemoryOperationalScopeResult> RequestOperationalScopeAsync(HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest request, System.Threading.CancellationToken cancellationToken = default)
+type HoneyDrunk.Memory.Abstractions.IMemoryStore: interface
+  HoneyDrunk.Memory.Abstractions.IMemoryStore public method System.Threading.Tasks.Task<HoneyDrunk.Memory.Abstractions.MemoryEntry> WriteAsync(HoneyDrunk.Memory.Abstractions.IMemoryScope scope, HoneyDrunk.Memory.Abstractions.NewMemoryEntry entry, System.Threading.CancellationToken cancellationToken = default)
+  HoneyDrunk.Memory.Abstractions.IMemoryStore public method System.Threading.Tasks.Task<HoneyDrunk.Memory.Abstractions.MemoryEntry> WriteSummaryAsync(HoneyDrunk.Memory.Abstractions.IMemoryScope scope, HoneyDrunk.Memory.Abstractions.NewMemoryEntry summary, System.Collections.Generic.IReadOnlyList<System.String> supersededIds, System.Threading.CancellationToken cancellationToken = default)
+  HoneyDrunk.Memory.Abstractions.IMemoryStore public method System.Threading.Tasks.Task<HoneyDrunk.Memory.Abstractions.MemoryEntry?> GetAsync(HoneyDrunk.Memory.Abstractions.IMemoryScope scope, System.String entryId, System.Threading.CancellationToken cancellationToken = default)
+  HoneyDrunk.Memory.Abstractions.IMemoryStore public method System.Threading.Tasks.Task<System.Boolean> DeleteAsync(HoneyDrunk.Memory.Abstractions.IMemoryScope scope, System.String entryId, System.Threading.CancellationToken cancellationToken = default)
+  HoneyDrunk.Memory.Abstractions.IMemoryStore public method System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<HoneyDrunk.Memory.Abstractions.MemoryEntry>> ReadAsync(HoneyDrunk.Memory.Abstractions.IMemoryScope scope, HoneyDrunk.Memory.Abstractions.MemoryQuery query, System.Threading.CancellationToken cancellationToken = default)
+  HoneyDrunk.Memory.Abstractions.IMemoryStore public method System.Threading.Tasks.Task<System.Int32> DeleteAllAsync(HoneyDrunk.Memory.Abstractions.IMemoryScope scope, System.Threading.CancellationToken cancellationToken = default)
+type HoneyDrunk.Memory.Abstractions.IMemorySummarizer: interface
+  HoneyDrunk.Memory.Abstractions.IMemorySummarizer public method System.Threading.Tasks.Task<HoneyDrunk.Memory.Abstractions.MemoryEntry> SummarizeAsync(HoneyDrunk.Memory.Abstractions.IMemoryScope scope, HoneyDrunk.Memory.Abstractions.MemorySummaryRequest request, System.Threading.CancellationToken cancellationToken = default)
+type HoneyDrunk.Memory.Abstractions.MemoryApprovalStatus: enum System.Int32 implements System.IComparable, System.IConvertible, System.IFormattable, System.ISpanFormattable
+  HoneyDrunk.Memory.Abstractions.MemoryApprovalStatus value Approved = 1
+  HoneyDrunk.Memory.Abstractions.MemoryApprovalStatus value Denied = 2
+  HoneyDrunk.Memory.Abstractions.MemoryApprovalStatus value Expired = 3
+  HoneyDrunk.Memory.Abstractions.MemoryApprovalStatus value Pending = 0
+type HoneyDrunk.Memory.Abstractions.MemoryCaller: sealed class implements System.IEquatable<HoneyDrunk.Memory.Abstractions.MemoryCaller>
+  HoneyDrunk.Memory.Abstractions.MemoryCaller public ctor(System.String SubjectId, System.Collections.Generic.IReadOnlyList<System.String> Scopes, System.Collections.Generic.IReadOnlyList<System.String> Roles)
+  HoneyDrunk.Memory.Abstractions.MemoryCaller public property System.Collections.Generic.IReadOnlyList<System.String> Roles { get; }
+  HoneyDrunk.Memory.Abstractions.MemoryCaller public property System.Collections.Generic.IReadOnlyList<System.String> Scopes { get; }
+  HoneyDrunk.Memory.Abstractions.MemoryCaller public property System.String SubjectId { get; }
+type HoneyDrunk.Memory.Abstractions.MemoryEntry: sealed class implements System.IEquatable<HoneyDrunk.Memory.Abstractions.MemoryEntry>
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public ctor(System.String Id, HoneyDrunk.Memory.Abstractions.MemoryScopeKey Scope, System.String Kind, System.String Content, System.Collections.Generic.IReadOnlyList<System.String> Tags, System.DateTimeOffset WrittenAt, System.String? EmbeddingModelId, System.Collections.Generic.IReadOnlyList<System.String> SummaryOf, System.String? SupersededBy)
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public property HoneyDrunk.Memory.Abstractions.MemoryScopeKey Scope { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.Collections.Generic.IReadOnlyList<System.String> SummaryOf { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.Collections.Generic.IReadOnlyList<System.String> Tags { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.DateTimeOffset WrittenAt { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.String Content { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.String Id { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.String Kind { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.String? EmbeddingModelId { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryEntry public property System.String? SupersededBy { get; init; }
+type HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest: sealed class implements System.IEquatable<HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest>
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest public const field System.Int32 MaxPurposeLength = 200
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest public const field System.Int32 MaxScopes = 50
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest public ctor(System.String RequesterId, System.Collections.Generic.IReadOnlyList<HoneyDrunk.Memory.Abstractions.MemoryScopeKey> Scopes, System.String Purpose, System.DateTimeOffset Expiry, System.String CorrelationId)
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest public property System.Collections.Generic.IReadOnlyList<HoneyDrunk.Memory.Abstractions.MemoryScopeKey> Scopes { get; }
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest public property System.DateTimeOffset Expiry { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest public property System.String CorrelationId { get; }
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest public property System.String Purpose { get; }
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalReadRequest public property System.String RequesterId { get; }
+type HoneyDrunk.Memory.Abstractions.MemoryOperationalScopeResult: sealed class implements System.IEquatable<HoneyDrunk.Memory.Abstractions.MemoryOperationalScopeResult>
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalScopeResult public ctor(HoneyDrunk.Memory.Abstractions.MemoryApprovalStatus Status, System.String ApprovalId, HoneyDrunk.Memory.Abstractions.IMemoryScope? Scope)
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalScopeResult public property HoneyDrunk.Memory.Abstractions.IMemoryScope? Scope { get; }
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalScopeResult public property HoneyDrunk.Memory.Abstractions.MemoryApprovalStatus Status { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryOperationalScopeResult public property System.String ApprovalId { get; }
+type HoneyDrunk.Memory.Abstractions.MemoryQuery: sealed class implements System.IEquatable<HoneyDrunk.Memory.Abstractions.MemoryQuery>
+  HoneyDrunk.Memory.Abstractions.MemoryQuery public const field System.Int32 MaxLimit = 200
+  HoneyDrunk.Memory.Abstractions.MemoryQuery public ctor(System.Int32 Limit = 20, System.String? Kind = null, System.Collections.Generic.IReadOnlyList<System.String>? AllTags = null, System.DateTimeOffset? WrittenBefore = null, System.Boolean IncludeSuperseded = false)
+  HoneyDrunk.Memory.Abstractions.MemoryQuery public property System.Boolean IncludeSuperseded { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryQuery public property System.Collections.Generic.IReadOnlyList<System.String>? AllTags { get; }
+  HoneyDrunk.Memory.Abstractions.MemoryQuery public property System.DateTimeOffset? WrittenBefore { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryQuery public property System.Int32 Limit { get; }
+  HoneyDrunk.Memory.Abstractions.MemoryQuery public property System.String? Kind { get; }
+type HoneyDrunk.Memory.Abstractions.MemoryScopeKey: readonly struct implements System.IEquatable<HoneyDrunk.Memory.Abstractions.MemoryScopeKey>
+  HoneyDrunk.Memory.Abstractions.MemoryScopeKey public ctor(HoneyDrunk.Kernel.Abstractions.Identity.TenantId TenantId, HoneyDrunk.Kernel.Abstractions.Identity.ProjectId ProjectId, System.String AgentId)
+  HoneyDrunk.Memory.Abstractions.MemoryScopeKey public override method System.String ToString()
+  HoneyDrunk.Memory.Abstractions.MemoryScopeKey public property HoneyDrunk.Kernel.Abstractions.Identity.ProjectId ProjectId { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryScopeKey public property HoneyDrunk.Kernel.Abstractions.Identity.TenantId TenantId { get; init; }
+  HoneyDrunk.Memory.Abstractions.MemoryScopeKey public property System.String AgentId { get; }
+type HoneyDrunk.Memory.Abstractions.MemoryScopeKind: enum System.Int32 implements System.IComparable, System.IConvertible, System.IFormattable, System.ISpanFormattable
+  HoneyDrunk.Memory.Abstractions.MemoryScopeKind value Agent = 0
+  HoneyDrunk.Memory.Abstractions.MemoryScopeKind value Escalated = 1
+  HoneyDrunk.Memory.Abstractions.MemoryScopeKind value Operational = 2
+type HoneyDrunk.Memory.Abstractions.MemorySummaryRequest: sealed class implements System.IEquatable<HoneyDrunk.Memory.Abstractions.MemorySummaryRequest>
+  HoneyDrunk.Memory.Abstractions.MemorySummaryRequest public ctor(System.Collections.Generic.IReadOnlyList<System.String> EntryIds, System.String SummaryKind = "summary", System.Collections.Generic.IReadOnlyList<System.String>? Tags = null)
+  HoneyDrunk.Memory.Abstractions.MemorySummaryRequest public property System.Collections.Generic.IReadOnlyList<System.String> EntryIds { get; }
+  HoneyDrunk.Memory.Abstractions.MemorySummaryRequest public property System.Collections.Generic.IReadOnlyList<System.String>? Tags { get; }
+  HoneyDrunk.Memory.Abstractions.MemorySummaryRequest public property System.String SummaryKind { get; }
+type HoneyDrunk.Memory.Abstractions.NewMemoryEntry: sealed class implements System.IEquatable<HoneyDrunk.Memory.Abstractions.NewMemoryEntry>
+  HoneyDrunk.Memory.Abstractions.NewMemoryEntry public ctor(System.String Kind, System.String Content, System.Collections.Generic.IReadOnlyList<System.String> Tags)
+  HoneyDrunk.Memory.Abstractions.NewMemoryEntry public property System.Collections.Generic.IReadOnlyList<System.String> Tags { get; }
+  HoneyDrunk.Memory.Abstractions.NewMemoryEntry public property System.String Content { get; }
+  HoneyDrunk.Memory.Abstractions.NewMemoryEntry public property System.String Kind { get; }
