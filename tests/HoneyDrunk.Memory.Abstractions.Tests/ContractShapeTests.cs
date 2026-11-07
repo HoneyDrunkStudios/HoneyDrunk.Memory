@@ -29,7 +29,7 @@ public sealed class ContractShapeTests
         var shape = "# package: HoneyDrunk.Memory.Abstractions\n"
             + "# roots: " + string.Join(", ", Roots.Select(root => root.Name)) + "\n"
             + ContractShapeRenderer.Render(Roots);
-        var baseline = Path.Combine(FindRepositoryRoot(), BaselinePath.Replace('/', Path.DirectorySeparatorChar));
+        var baseline = Path.Join(FindRepositoryRoot(), BaselinePath.Replace('/', Path.DirectorySeparatorChar));
         var informational = typeof(MemoryEntry).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? throw new InvalidOperationException("The Abstractions assembly has no informational version.");
         var update = Environment.GetEnvironmentVariable("HONEYDRUNK_UPDATE_CONTRACT_SHAPE") == "1";
@@ -43,7 +43,7 @@ public sealed class ContractShapeTests
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "HoneyDrunk.Memory.slnx")))
+            if (File.Exists(Path.Join(directory.FullName, "HoneyDrunk.Memory.slnx")))
             {
                 return directory.FullName;
             }

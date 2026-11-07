@@ -7,7 +7,7 @@ namespace HoneyDrunk.Memory.Abstractions;
 /// <param name="RequesterId">The requesting operator or system.</param>
 /// <param name="Scopes">The keys to read: 1 to 50, duplicates removed with the first order kept. The first is the scope's home.</param>
 /// <param name="Purpose">Why the read is needed: 1 to 200 characters on one line. It is shown to the approver.</param>
-/// <param name="Expiry">When the request and any scope it yields expire: 1 minute to 7 days ahead when requested.</param>
+/// <param name="Expiry">When the request and any scope it yields expire: 1 minute to 7 days ahead when first raised; it can then be polled until it passes.</param>
 /// <param name="CorrelationId">The correlation id of the requesting operation.</param>
 public sealed record MemoryOperationalReadRequest(
     string RequesterId,
@@ -30,7 +30,7 @@ public sealed record MemoryOperationalReadRequest(
         ? throw new ArgumentException("A requester is required.", nameof(RequesterId))
         : RequesterId;
 
-    /// <summary>Gets the distinct keys, in first order.</summary>
+    /// <summary>Gets a read-only copy of the distinct keys, in first order. The approval binds exactly these keys.</summary>
     public IReadOnlyList<MemoryScopeKey> Scopes { get; } = ValidateScopes(Scopes, nameof(Scopes));
 
     /// <summary>Gets the purpose.</summary>
@@ -41,7 +41,7 @@ public sealed record MemoryOperationalReadRequest(
         ? throw new ArgumentException("A correlation id is required.", nameof(CorrelationId))
         : CorrelationId;
 
-    private static MemoryScopeKey[] ValidateScopes(IReadOnlyList<MemoryScopeKey> scopes, string paramName)
+    private static IReadOnlyList<MemoryScopeKey> ValidateScopes(IReadOnlyList<MemoryScopeKey> scopes, string paramName)
     {
         ArgumentNullException.ThrowIfNull(scopes, paramName);
         if (scopes.Any(key => key.AgentId is null))
@@ -51,7 +51,7 @@ public sealed record MemoryOperationalReadRequest(
 
         var distinct = scopes.Distinct().ToArray();
         return distinct.Length is >= 1 and <= MaxScopes
-            ? distinct
+            ? Array.AsReadOnly(distinct)
             : throw new ArgumentException("An operational read names 1 to 50 keys.", paramName);
     }
 

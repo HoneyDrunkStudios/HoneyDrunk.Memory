@@ -63,8 +63,8 @@ internal static partial class MemoryValidation
     /// </summary>
     /// <param name="tags">The tags.</param>
     /// <param name="paramName">The parameter name for the exception.</param>
-    /// <returns>The normalized tags.</returns>
-    internal static string[] Tags(IEnumerable<string> tags, string paramName)
+    /// <returns>A read-only copy of the normalized tags.</returns>
+    internal static IReadOnlyList<string> Tags(IEnumerable<string> tags, string paramName)
     {
         ArgumentNullException.ThrowIfNull(tags, paramName);
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -89,20 +89,20 @@ internal static partial class MemoryValidation
         }
 
         return normalized.Count <= MaxTags
-            ? [.. normalized]
+            ? normalized.AsReadOnly()
             : throw new ArgumentException("At most 16 distinct tags are allowed.", paramName);
     }
 
     /// <summary>Copies a list of required non-blank values.</summary>
     /// <param name="values">The values.</param>
     /// <param name="paramName">The parameter name for the exception.</param>
-    /// <returns>The copy.</returns>
-    internal static string[] NonBlankList(IReadOnlyList<string> values, string paramName)
+    /// <returns>A read-only copy.</returns>
+    internal static IReadOnlyList<string> NonBlankList(IReadOnlyList<string> values, string paramName)
     {
         ArgumentNullException.ThrowIfNull(values, paramName);
         return values.Any(string.IsNullOrWhiteSpace)
             ? throw new ArgumentException("Values must not be null or whitespace.", paramName)
-            : [.. values];
+            : Array.AsReadOnly(values.ToArray());
     }
 
     [GeneratedRegex(@"\A[a-z0-9][a-z0-9._-]{0,63}\z", RegexOptions.CultureInvariant)]

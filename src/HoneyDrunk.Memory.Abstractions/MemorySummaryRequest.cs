@@ -15,10 +15,10 @@ public sealed record MemorySummaryRequest(IReadOnlyList<string> EntryIds, string
     /// <summary>Gets the normalized summary tags, or <see langword="null"/>.</summary>
     public IReadOnlyList<string>? Tags { get; } = Tags is null ? null : MemoryValidation.Tags(Tags, nameof(Tags));
 
-    private static string[] ValidateIds(IReadOnlyList<string> ids, string paramName)
+    private static IReadOnlyList<string> ValidateIds(IReadOnlyList<string> ids, string paramName)
     {
         var copy = MemoryValidation.NonBlankList(ids, paramName);
-        return copy.Distinct(StringComparer.Ordinal).Count() == copy.Length
+        return copy.Distinct(StringComparer.Ordinal).Count() == copy.Count
             ? copy
             : throw new ArgumentException("Entry ids must be distinct.", paramName);
     }

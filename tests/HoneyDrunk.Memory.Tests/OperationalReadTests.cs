@@ -136,17 +136,62 @@ public sealed class OperationalReadTests
         Assert.Empty(this.gate.Inner.ReceivedRequests);
     }
 
-    /// <summary>An expiry under a minute or over seven days ahead is rejected without asking the gate.</summary>
-    /// <param name="secondsAhead">The expiry, in seconds from now.</param>
-    [Theory]
-    [InlineData(30)]
-    [InlineData((7 * 24 * 3600) + 1)]
-    public async Task Expiry_out_of_range_is_rejected(int secondsAhead)
+    /// <summary>A new request under a minute ahead is rejected before any approval request is raised.</summary>
+    [Fact]
+    public async Task New_request_under_a_minute_ahead_is_rejected()
     {
-        var request = Request([Key(Project1)], expiry: Now.AddSeconds(secondsAhead));
+        var request = Request([Key(Project1)], expiry: Now.AddSeconds(30));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => this.Resolver().RequestOperationalScopeAsync(request));
+        Assert.Empty(this.gate.Inner.ReceivedRequests);
+    }
+
+    /// <summary>An expiry over seven days ahead is rejected without asking the gate.</summary>
+    [Fact]
+    public async Task Expiry_over_seven_days_ahead_is_rejected()
+    {
+        var request = Request([Key(Project1)], expiry: Now.AddSeconds((7 * 24 * 3600) + 1));
 
         await Assert.ThrowsAsync<ArgumentException>(() => this.Resolver().RequestOperationalScopeAsync(request));
         Assert.Equal(0, this.gate.StatusChecks);
+        Assert.Empty(this.gate.Inner.ReceivedRequests);
+    }
+
+    /// <summary>A request raised in time can still be polled in its final minute, until it expires.</summary>
+    [Fact]
+    public async Task Existing_request_can_be_polled_in_its_final_minute()
+    {
+        var request = Request([Key(Project1)], expiry: Now.AddHours(2));
+        var first = await this.Resolver().RequestOperationalScopeAsync(request);
+        this.time.Advance(TimeSpan.FromHours(2) - TimeSpan.FromSeconds(30));
+
+        var polled = await this.Resolver().RequestOperationalScopeAsync(request);
+
+        Assert.Equal(MemoryApprovalStatus.Approved, polled.Status);
+        Assert.Equal(first.ApprovalId, polled.ApprovalId);
+        Assert.Equal(request.Expiry, polled.Scope!.ExpiresAt);
+        Assert.Single(this.gate.Inner.ReceivedRequests);
+    }
+
+    /// <summary>
+    /// Changing the request's keys while the gate is awaited cannot redirect the approval: the keys
+    /// are a read-only snapshot, so the issued scope covers exactly the keys that were approved.
+    /// </summary>
+    [Fact]
+    public async Task Keys_cannot_be_swapped_while_the_gate_is_awaited()
+    {
+        var approved = Key(Project1);
+        var request = Request([approved]);
+        var swapped = false;
+        var swapping = new CallbackApprovalGate(this.gate, () => swapped = TrySwap(request.Scopes, Key(Project1, tenant: TenantB)));
+        var resolver = new MemoryScopeResolver(this.policy, swapping, Options.Create(new MemoryAuthorizationOptions()), new RecordingTelemetryActivityFactory(), this.time, new ListLogger<MemoryScopeResolver>());
+
+        var result = await resolver.RequestOperationalScopeAsync(request);
+
+        Assert.False(swapped);
+        Assert.Equal(MemoryApprovalStatus.Approved, result.Status);
+        Assert.Equal([approved], result.Scope!.Readable);
+        Assert.Equal([approved], request.Scopes);
     }
 
     /// <summary>The approval request carries only the key count, the purpose and the keys.</summary>
@@ -197,6 +242,37 @@ public sealed class OperationalReadTests
 
     private MemoryScopeResolver Resolver() =>
         new(this.policy, this.gate, Options.Create(new MemoryAuthorizationOptions()), new RecordingTelemetryActivityFactory(), this.time, new ListLogger<MemoryScopeResolver>());
+
+    // Overwrites the first key through a cast back to IList<T>; false when the list is read-only.
+    private static bool TrySwap(IReadOnlyList<MemoryScopeKey> keys, MemoryScopeKey replacement)
+    {
+        if (keys is not IList<MemoryScopeKey> list)
+        {
+            return false;
+        }
+
+        try
+        {
+            list[0] = replacement;
+            return true;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private sealed class CallbackApprovalGate(IApprovalGate inner, Action onCheck) : IApprovalGate
+    {
+        public Task<ApprovalDecision> RequestAsync(ApprovalRequest request, CancellationToken cancellationToken = default) =>
+            inner.RequestAsync(request, cancellationToken);
+
+        public Task<ApprovalDecision?> CheckStatusAsync(string approvalId, CancellationToken cancellationToken = default)
+        {
+            onCheck();
+            return inner.CheckStatusAsync(approvalId, cancellationToken);
+        }
+    }
 
     private sealed class ThrowingApprovalGate(bool failOnRequest, Exception error) : IApprovalGate
     {

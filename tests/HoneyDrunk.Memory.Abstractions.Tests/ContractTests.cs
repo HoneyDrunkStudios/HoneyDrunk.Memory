@@ -56,6 +56,29 @@ public sealed class ContractTests
         Assert.ThrowsAny<ArgumentException>(() => new MemoryOperationalReadRequest("operator-1", [Key("agent-a")], "audit", Expiry, " "));
     }
 
+    /// <summary>
+    /// Every validated list is a read-only copy: casting it back to a writable list cannot change
+    /// what was validated (or, for an operational read, what was approved).
+    /// </summary>
+    [Fact]
+    public void Validated_lists_cannot_be_written_through_a_cast()
+    {
+        var caller = new MemoryCaller("agent:agent-a", ["memory.read"], ["memory-reader"]);
+        var summary = new MemorySummaryRequest(["a"], Tags: ["tag"]);
+        var writable = new Dictionary<string, bool>(StringComparer.Ordinal)
+        {
+            ["MemoryOperationalReadRequest.Scopes"] = CanWrite(new MemoryOperationalReadRequest("operator-1", [Key("agent-a")], "audit", Expiry, "corr-1").Scopes),
+            ["MemoryCaller.Scopes"] = CanWrite(caller.Scopes),
+            ["MemoryCaller.Roles"] = CanWrite(caller.Roles),
+            ["NewMemoryEntry.Tags"] = CanWrite(new NewMemoryEntry("note", "text", ["tag"]).Tags),
+            ["MemoryQuery.AllTags"] = CanWrite(new MemoryQuery(AllTags: ["tag"]).AllTags!),
+            ["MemorySummaryRequest.EntryIds"] = CanWrite(summary.EntryIds),
+            ["MemorySummaryRequest.Tags"] = CanWrite(summary.Tags!),
+        };
+
+        Assert.Empty(writable.Where(pair => pair.Value).Select(pair => pair.Key));
+    }
+
     /// <summary>The store offers no similarity search in this release.</summary>
     [Fact]
     public void Store_has_no_similarity_member()
@@ -95,6 +118,25 @@ public sealed class ContractTests
         Assert.IsAssignableFrom<UnauthorizedAccessException>(error);
         Assert.Equal([Key("agent-b")], error.DeniedScopes);
         Assert.IsAssignableFrom<InvalidOperationException>(new MemoryScopeException("Read-only."));
+    }
+
+    // True when a cast back to IList<T> can overwrite an item of the list.
+    private static bool CanWrite<T>(IReadOnlyList<T> list)
+    {
+        if (list is not IList<T> items || items.Count == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            items[0] = items[0];
+            return true;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private static MemoryScopeKey Key(string agentId) =>

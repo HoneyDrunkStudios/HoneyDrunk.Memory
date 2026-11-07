@@ -96,13 +96,7 @@ internal static class ContractShapeRenderer
             direct.Add(field.FieldType);
         }
 
-        foreach (var eventInfo in type.GetEvents(Declared))
-        {
-            if (eventInfo.EventHandlerType is not null)
-            {
-                direct.Add(eventInfo.EventHandlerType);
-            }
-        }
+        direct.AddRange(type.GetEvents(Declared).Select(eventInfo => eventInfo.EventHandlerType).OfType<Type>());
 
         return direct.SelectMany(Unwrap);
     }

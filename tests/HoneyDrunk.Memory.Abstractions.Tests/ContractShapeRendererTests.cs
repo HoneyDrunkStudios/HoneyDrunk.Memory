@@ -8,7 +8,7 @@ public sealed class ContractShapeRendererTests : IDisposable
 {
     private const string Header = "# package: Fixture\n# roots: IFixtureRoot\n";
 
-    private readonly string directory = Path.Combine(Path.GetTempPath(), "memory-shape-" + Guid.NewGuid().ToString("N"));
+    private readonly string directory = Path.Join(Path.GetTempPath(), "memory-shape-" + Guid.NewGuid().ToString("N"));
 
     /// <summary>Initializes a new instance of the <see cref="ContractShapeRendererTests"/> class.</summary>
     public ContractShapeRendererTests() => Directory.CreateDirectory(this.directory);
@@ -98,7 +98,7 @@ public sealed class ContractShapeRendererTests : IDisposable
     [Fact]
     public void Verify_fails_without_a_baseline()
     {
-        var file = Path.Combine(this.directory, "missing.txt");
+        var file = Path.Join(this.directory, "missing.txt");
 
         var (passed, message) = ContractShapeCheck.Verify(Header + "line-a\n", file, "0.1.0", updateRequested: false);
 
@@ -118,7 +118,7 @@ public sealed class ContractShapeRendererTests : IDisposable
 
     private string Baseline(string version, string body)
     {
-        var file = Path.Combine(this.directory, "shape.txt");
+        var file = Path.Join(this.directory, "shape.txt");
         File.WriteAllText(file, $"# package: Fixture\n# version: {version}\n# roots: IFixtureRoot\n{body}");
         return file;
     }

@@ -71,29 +71,25 @@ public sealed class MemoryScopeResolver(
             return this.OperationalResult(approvalId, MemoryApprovalStatus.Expired, request, activity);
         }
 
+        // The longest lead time holds for every call. The shortest holds only when a request is first
+        // raised, so a request raised in time can still be polled in its final minute.
         var ahead = request.Expiry - now;
-        if (ahead < MinimumOperationalExpiry || ahead > MaximumOperationalExpiry)
+        if (ahead > MaximumOperationalExpiry)
         {
             activity?.SetTag(MemoryTelemetry.Outcome, MemoryTelemetry.Error);
-            throw new ArgumentException("The expiry must be 1 minute to 7 days ahead.", nameof(request));
+            throw new ArgumentException("The expiry must be at most 7 days ahead.", nameof(request));
         }
 
-        ApprovalDecision decision;
-        try
+        var decision = await this.CallGateAsync(approvalId, activity, token => this.approvalGate.CheckStatusAsync(approvalId, token), cancellationToken).ConfigureAwait(false);
+        if (decision is null)
         {
-            decision = await this.approvalGate.CheckStatusAsync(approvalId, cancellationToken).ConfigureAwait(false)
-                ?? await this.approvalGate.RequestAsync(this.ToApprovalRequest(approvalId, request), cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            activity?.SetTag(MemoryTelemetry.Outcome, MemoryTelemetry.Cancelled);
-            throw;
-        }
-        catch (Exception error)
-        {
-            activity?.SetTag(MemoryTelemetry.Outcome, MemoryTelemetry.Error);
-            MemoryLog.ApprovalGateFailed(this.logger, approvalId, error.GetType().Name);
-            throw;
+            if (ahead < MinimumOperationalExpiry)
+            {
+                activity?.SetTag(MemoryTelemetry.Outcome, MemoryTelemetry.Error);
+                throw new ArgumentException("A new operational read must expire 1 minute to 7 days ahead.", nameof(request));
+            }
+
+            decision = await this.CallGateAsync(approvalId, activity, token => this.approvalGate.RequestAsync(this.ToApprovalRequest(approvalId, request), token), cancellationToken).ConfigureAwait(false);
         }
 
         var status = decision.Outcome switch
@@ -190,6 +186,25 @@ public sealed class MemoryScopeResolver(
 
     private static string DeniedMessage(IReadOnlyList<MemoryScopeKey> denied, int requested, string reason) =>
         $"Memory scope escalation was denied for {denied.Count} of {requested} keys ({reason}): {string.Join(", ", denied)}.";
+
+    private async Task<T> CallGateAsync<T>(string approvalId, Activity? activity, Func<CancellationToken, Task<T>> call, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await call(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            activity?.SetTag(MemoryTelemetry.Outcome, MemoryTelemetry.Cancelled);
+            throw;
+        }
+        catch (Exception error)
+        {
+            activity?.SetTag(MemoryTelemetry.Outcome, MemoryTelemetry.Error);
+            MemoryLog.ApprovalGateFailed(this.logger, approvalId, error.GetType().Name);
+            throw;
+        }
+    }
 
     private MemoryOperationalScopeResult OperationalResult(string approvalId, MemoryApprovalStatus status, MemoryOperationalReadRequest request, Activity? activity)
     {
