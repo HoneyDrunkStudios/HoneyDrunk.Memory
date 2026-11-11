@@ -1,7 +1,7 @@
 using HoneyDrunk.Kernel.Abstractions.Identity;
 using HoneyDrunk.Memory.Abstractions;
 
-namespace HoneyDrunk.Memory.Providers.InMemory.Tests;
+namespace HoneyDrunk.Memory.Providers.Contract;
 
 /// <summary>
 /// Plain scopes for provider tests. Providers trust the scope they are given; the runtime's

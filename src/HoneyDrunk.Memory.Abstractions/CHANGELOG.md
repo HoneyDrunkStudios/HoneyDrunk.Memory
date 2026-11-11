@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0] - 2026-11-11
+
+### Changed
+
+- No change to the contracts. The package targets `net10.0` and `net11.0`.
+
 ## [0.1.0] - 2026-11-07
 
 ### Added

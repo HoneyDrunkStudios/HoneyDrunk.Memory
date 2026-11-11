@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HoneyDrunk.Memory.Providers.Data\HoneyDrunk.Memory.Providers.Data.csproj" />
+    <ProjectReference Include="..\..\src\HoneyDrunk.Memory\HoneyDrunk.Memory.csproj" />
+    <ProjectReference Include="..\..\src\HoneyDrunk.Memory.Abstractions\HoneyDrunk.Memory.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+    <Compile Include="..\HoneyDrunk.Memory.Tests\FakeAuthorizationPolicy.cs" Link="Runtime\FakeAuthorizationPolicy.cs" />
+    <Compile Include="..\HoneyDrunk.Memory.Canary\NullTelemetryActivityFactory.cs" Link="Runtime\NullTelemetryActivityFactory.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="HoneyDrunk.Standards" Version="0.4.4" PrivateAssets="all" />
+    <PackageReference Include="HoneyDrunk.Standards.Tests" Version="0.4.4" PrivateAssets="all" />
+    <PackageReference Include="HoneyDrunk.Operator.Testing" Version="0.1.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
+  </ItemGroup>
+</Project>

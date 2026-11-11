@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Durable HoneyDrunk agent-memory store over HoneyDrunk.Data's Entity Framework layer: memory survives a restart and is shared by every host on one database.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="HoneyDrunk.Memory.Providers.Data.Tests" />
+    <InternalsVisibleTo Include="HoneyDrunk.Memory.Providers.Data.SqlServerTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HoneyDrunk.Memory.Abstractions\HoneyDrunk.Memory.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="HoneyDrunk.Standards" Version="0.4.4" PrivateAssets="all" />
+    <PackageReference Include="HoneyDrunk.Data.EntityFramework" Version="0.8.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="11.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="11.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The SQL Server table scripts, in a plain folder: nothing is added to a consumer's build. -->
+    <None Include="Sql\*.sql" Pack="true" PackagePath="sql\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="CHANGELOG.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
