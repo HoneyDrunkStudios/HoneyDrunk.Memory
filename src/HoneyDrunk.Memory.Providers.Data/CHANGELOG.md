@@ -10,4 +10,8 @@
 
 ### Schema
 
-- First version of the `memory` schema: `memory.Entry`, `memory.EntryTag` and `memory.EntrySummarySource`. The SQL Server scripts are in the package's `sql` folder; the host's database project carries them. No migrations are shipped.
+- First version of the `memory` schema. The SQL Server scripts are in the package's `sql` folder; the host's database project carries them. No migrations are shipped.
+- `memory.Entry`: `Id`, `TenantId`, `ProjectId`, `AgentId`, `Kind`, `Content`, `CreatedAt`, `SupersededByEntryId`. `CreatedAt` holds the instant the contract calls `WrittenAt`: an entry is written once, so its write instant is its creation stamp. Index `IX_Entry_TenantId_ProjectId_AgentId_CreatedAt_Id` on `(TenantId, ProjectId, AgentId, CreatedAt DESC, Id DESC)`, including `Kind` and `SupersededByEntryId`.
+- `memory.EntryTag`: `EntryId`, `Ordinal`, `Tag`, `CreatedAt`.
+- `memory.EntrySummarySource`: `SummaryEntryId`, `Ordinal`, `SourceEntryId`, `CreatedAt`.
+- Every table carries `CreatedAt`, a UTC `datetime2(7)`. On the two child tables it is the creation time of the entry the row was written with.

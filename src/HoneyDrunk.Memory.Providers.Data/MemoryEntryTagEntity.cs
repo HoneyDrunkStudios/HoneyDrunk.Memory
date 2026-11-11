@@ -11,4 +11,7 @@ internal sealed class MemoryEntryTagEntity
 
     /// <summary>Gets or sets the tag, as normalized by the contract.</summary>
     public string Tag { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the instant the row was written, with its entry; stored in UTC.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
 }

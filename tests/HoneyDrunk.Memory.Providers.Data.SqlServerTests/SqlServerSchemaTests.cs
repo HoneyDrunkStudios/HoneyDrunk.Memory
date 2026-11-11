@@ -14,7 +14,7 @@ public sealed class SqlServerSchemaTests : IDisposable
 {
     private const string EntryId = "0123456789abcdef0123456789abcdef";
     private const string OtherId = "fedcba9876543210fedcba9876543210";
-    private const string InsertEntry = "INSERT INTO memory.Entry (Id, TenantId, ProjectId, AgentId, Kind, Content, WrittenAt, SupersededByEntryId) VALUES ";
+    private const string InsertEntry = "INSERT INTO memory.Entry (Id, TenantId, ProjectId, AgentId, Kind, Content, CreatedAt, SupersededByEntryId) VALUES ";
     private const string Coordinates = "'01JC0000000000000000000001', '01JC0000000000000000000002', 'agent-a', 'note'";
 
     private readonly SqlServerDatabase database = new();
@@ -40,9 +40,9 @@ public sealed class SqlServerSchemaTests : IDisposable
             FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'memory'
             """);
 
-        Assert.Equal(14, mapped.Length);
+        Assert.Equal(16, mapped.Length);
         Assert.Equal(mapped, deployed.Order(StringComparer.Ordinal));
-        Assert.Equal(["7"], await this.QueryAsync("SELECT CAST(DATETIME_PRECISION AS varchar(3)) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'memory' AND COLUMN_NAME = 'WrittenAt'"));
+        Assert.Equal(["7", "7", "7"], await this.QueryAsync("SELECT CAST(DATETIME_PRECISION AS varchar(3)) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'memory' AND COLUMN_NAME = 'CreatedAt'"));
     }
 
     /// <summary>The index every read relies on is deployed with the mapped key order, directions and included columns.</summary>
@@ -60,15 +60,15 @@ public sealed class SqlServerSchemaTests : IDisposable
             FROM sys.indexes i
             JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
             JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-            WHERE i.name = 'IX_Entry_TenantId_ProjectId_AgentId_WrittenAt_Id' AND i.object_id = OBJECT_ID('memory.Entry')
+            WHERE i.name = 'IX_Entry_TenantId_ProjectId_AgentId_CreatedAt_Id' AND i.object_id = OBJECT_ID('memory.Entry')
             ORDER BY ic.is_included_column, ic.key_ordinal, c.name
             """);
 
-        Assert.Equal("IX_Entry_TenantId_ProjectId_AgentId_WrittenAt_Id", mapped.GetDatabaseName());
+        Assert.Equal("IX_Entry_TenantId_ProjectId_AgentId_CreatedAt_Id", mapped.GetDatabaseName());
         Assert.Equal([.. expectedKeys, "include Kind", "include SupersededByEntryId"], deployed);
     }
 
-    /// <summary>All three tables and all fourteen columns carry a description that says more than the name.</summary>
+    /// <summary>All three tables and all sixteen columns carry a description that says more than the name.</summary>
     /// <returns>A task.</returns>
     [Fact]
     public async Task Every_table_and_column_has_a_description()
@@ -90,7 +90,7 @@ public sealed class SqlServerSchemaTests : IDisposable
             """);
 
         Assert.Equal(3, tables.Count);
-        Assert.Equal(14, columns.Count);
+        Assert.Equal(16, columns.Count);
         Assert.All(tables, described => Assert.Contains("Classification: Confidential.", described, StringComparison.Ordinal));
         Assert.All(tables.Concat(columns), described =>
         {
@@ -118,7 +118,7 @@ public sealed class SqlServerSchemaTests : IDisposable
     public async Task Database_refuses_rows_the_contract_forbids()
     {
         await this.ExecuteAsync($"{InsertEntry}('{EntryId}', {Coordinates}, N'kept', SYSUTCDATETIME(), NULL)");
-        await this.ExecuteAsync($"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag) VALUES ('{EntryId}', 0, N'alice')");
+        await this.ExecuteAsync($"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag, CreatedAt) VALUES ('{EntryId}', 0, N'alice', SYSUTCDATETIME())");
 
         await this.AssertRefusedAsync("CK_Entry_Content_Length", $"{InsertEntry}('{OtherId}', {Coordinates}, REPLICATE(CAST(N'x' AS nvarchar(max)), 16001), SYSUTCDATETIME(), NULL)");
         await this.AssertRefusedAsync("CK_Entry_Content_Length", $"{InsertEntry}('{OtherId}', {Coordinates}, N'', SYSUTCDATETIME(), NULL)");
@@ -126,12 +126,12 @@ public sealed class SqlServerSchemaTests : IDisposable
         await this.AssertRefusedAsync("CK_Entry_Id_Format", $"{InsertEntry}('{OtherId[..31]}', {Coordinates}, N'x', SYSUTCDATETIME(), NULL)");
         await this.AssertRefusedAsync("CK_Entry_SupersededByEntryId_NotSelf", $"{InsertEntry}('{OtherId}', {Coordinates}, N'x', SYSUTCDATETIME(), '{OtherId}')");
         await this.AssertRefusedAsync("PK_Entry", $"{InsertEntry}('{EntryId}', {Coordinates}, N'x', SYSUTCDATETIME(), NULL)");
-        await this.AssertRefusedAsync("CK_EntryTag_Ordinal", $"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag) VALUES ('{EntryId}', 16, N'late')");
-        await this.AssertRefusedAsync("UQ_EntryTag_EntryId_Tag", $"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag) VALUES ('{EntryId}', 1, N'alice')");
-        await this.AssertRefusedAsync("CK_EntryTag_Tag_Length", $"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag) VALUES ('{EntryId}', 1, N'')");
-        await this.AssertRefusedAsync("FK_EntryTag_Entry", $"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag) VALUES ('{OtherId}', 0, N'orphan')");
-        await this.AssertRefusedAsync("FK_EntrySummarySource_Entry_Summary", $"INSERT INTO memory.EntrySummarySource (SummaryEntryId, Ordinal, SourceEntryId) VALUES ('{OtherId}', 0, '{EntryId}')");
-        await this.AssertRefusedAsync("CK_EntrySummarySource_Ordinal", $"INSERT INTO memory.EntrySummarySource (SummaryEntryId, Ordinal, SourceEntryId) VALUES ('{EntryId}', -1, '{OtherId}')");
+        await this.AssertRefusedAsync("CK_EntryTag_Ordinal", $"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag, CreatedAt) VALUES ('{EntryId}', 16, N'late', SYSUTCDATETIME())");
+        await this.AssertRefusedAsync("UQ_EntryTag_EntryId_Tag", $"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag, CreatedAt) VALUES ('{EntryId}', 1, N'alice', SYSUTCDATETIME())");
+        await this.AssertRefusedAsync("CK_EntryTag_Tag_Length", $"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag, CreatedAt) VALUES ('{EntryId}', 1, N'', SYSUTCDATETIME())");
+        await this.AssertRefusedAsync("FK_EntryTag_Entry", $"INSERT INTO memory.EntryTag (EntryId, Ordinal, Tag, CreatedAt) VALUES ('{OtherId}', 0, N'orphan', SYSUTCDATETIME())");
+        await this.AssertRefusedAsync("FK_EntrySummarySource_Entry_Summary", $"INSERT INTO memory.EntrySummarySource (SummaryEntryId, Ordinal, SourceEntryId, CreatedAt) VALUES ('{OtherId}', 0, '{EntryId}', SYSUTCDATETIME())");
+        await this.AssertRefusedAsync("CK_EntrySummarySource_Ordinal", $"INSERT INTO memory.EntrySummarySource (SummaryEntryId, Ordinal, SourceEntryId, CreatedAt) VALUES ('{EntryId}', -1, '{OtherId}', SYSUTCDATETIME())");
 
         Assert.Equal(["1"], await this.QueryAsync("SELECT CAST(COUNT(*) AS varchar(10)) FROM memory.Entry"));
     }

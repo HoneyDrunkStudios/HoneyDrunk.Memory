@@ -21,8 +21,11 @@ internal sealed class MemoryEntryEntity
     /// <summary>Gets or sets the entry text, verbatim.</summary>
     public string Content { get; set; } = string.Empty;
 
-    /// <summary>Gets or sets the instant the entry was written; stored in UTC.</summary>
-    public DateTimeOffset WrittenAt { get; set; }
+    /// <summary>
+    /// Gets or sets the instant the entry was written, which the contract calls <c>WrittenAt</c>;
+    /// stored in UTC. An entry is written once, so this is also the row's creation stamp.
+    /// </summary>
+    public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>
     /// Gets or sets the id of the summary entry that replaced this one, or <see langword="null"/> while

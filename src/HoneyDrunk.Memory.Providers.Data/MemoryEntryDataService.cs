@@ -78,13 +78,13 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
         for (var i = 0; i < keys.Length; i++)
         {
             var newest = await Filter(InKey(context.Entries, keys[i]), query)
-                .OrderByDescending(row => row.WrittenAt)
+                .OrderByDescending(row => row.CreatedAt)
                 .ThenByDescending(row => row.Id)
                 .Take(query.Limit)
-                .Select(row => new { row.Id, row.WrittenAt })
+                .Select(row => new { row.Id, row.CreatedAt })
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
-            candidates.AddRange(newest.Select(row => (key: i, id: row.Id, writtenAt: row.WrittenAt)));
+            candidates.AddRange(newest.Select(row => (key: i, id: row.Id, writtenAt: row.CreatedAt)));
         }
 
         var winners = candidates
@@ -203,7 +203,7 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
         if (query.WrittenBefore is { } writtenBefore)
         {
             var before = writtenBefore.ToUniversalTime();
-            source = source.Where(row => row.WrittenAt < before);
+            source = source.Where(row => row.CreatedAt < before);
         }
 
         foreach (var tag in query.AllTags ?? [])
