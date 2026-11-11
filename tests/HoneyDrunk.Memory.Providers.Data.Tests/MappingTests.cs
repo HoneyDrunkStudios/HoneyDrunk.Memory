@@ -1,7 +1,10 @@
+using HoneyDrunk.Memory.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.Extensions.Time.Testing;
 using Xunit;
+using static HoneyDrunk.Memory.Providers.Contract.TestScopes;
 
 namespace HoneyDrunk.Memory.Providers.Data.Tests;
 
@@ -35,15 +38,17 @@ public sealed class MappingTests : IDisposable
             [
                 "Entry.AgentId length=64 fixed=False unicode=False null=False",
                 "Entry.Content length=16000 fixed=False unicode=True null=False",
+                "Entry.CreatedAt length= fixed=False unicode= null=False",
                 "Entry.Id length=32 fixed=True unicode=False null=False",
                 "Entry.Kind length=32 fixed=False unicode=False null=False",
                 "Entry.ProjectId length=26 fixed=True unicode=False null=False",
                 "Entry.SupersededByEntryId length=32 fixed=True unicode=False null=True",
                 "Entry.TenantId length=26 fixed=True unicode=False null=False",
-                "Entry.WrittenAt length= fixed=False unicode= null=False",
+                "EntrySummarySource.CreatedAt length= fixed=False unicode= null=False",
                 "EntrySummarySource.Ordinal length= fixed=False unicode= null=False",
                 "EntrySummarySource.SourceEntryId length=32 fixed=True unicode=False null=False",
                 "EntrySummarySource.SummaryEntryId length=32 fixed=True unicode=False null=False",
+                "EntryTag.CreatedAt length= fixed=False unicode= null=False",
                 "EntryTag.EntryId length=32 fixed=True unicode=False null=False",
                 "EntryTag.Ordinal length= fixed=False unicode= null=False",
                 "EntryTag.Tag length=64 fixed=False unicode=True null=False",
@@ -59,7 +64,7 @@ public sealed class MappingTests : IDisposable
 
         var index = Assert.Single(Entity(context, "Entry").GetIndexes());
 
-        Assert.Equal(["TenantId", "ProjectId", "AgentId", "WrittenAt", "Id"], index.Properties.Select(property => property.Name));
+        Assert.Equal(["TenantId", "ProjectId", "AgentId", "CreatedAt", "Id"], index.Properties.Select(property => property.Name));
         Assert.Equal([false, false, false, true, true], index.IsDescending);
         Assert.False(index.IsUnique);
     }
@@ -120,7 +125,7 @@ public sealed class MappingTests : IDisposable
                 AgentId = "agent-a",
                 Kind = "note",
                 Content = "precise",
-                WrittenAt = writtenAt.ToOffset(TimeSpan.FromHours(-5)),
+                CreatedAt = writtenAt.ToOffset(TimeSpan.FromHours(-5)),
             });
             await write.SaveChangesAsync();
         }
@@ -128,9 +133,33 @@ public sealed class MappingTests : IDisposable
         await using var read = this.database.CreateContext();
         var stored = await read.Entries.AsNoTracking().SingleAsync();
 
-        Assert.Equal(writtenAt, stored.WrittenAt);
-        Assert.Equal(TimeSpan.Zero, stored.WrittenAt.Offset);
-        Assert.Equal(writtenAt.UtcTicks, stored.WrittenAt.UtcTicks);
+        Assert.Equal(writtenAt, stored.CreatedAt);
+        Assert.Equal(TimeSpan.Zero, stored.CreatedAt.Offset);
+        Assert.Equal(writtenAt.UtcTicks, stored.CreatedAt.UtcTicks);
+    }
+
+    /// <summary>Every table carries a creation stamp: an entry's write time, repeated on the rows written with it.</summary>
+    /// <returns>A task.</returns>
+    [Fact]
+    public async Task Child_rows_carry_their_entry_creation_time()
+    {
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 11, 7, 9, 0, 0, TimeSpan.Zero).AddTicks(1_234_567));
+        var store = this.database.CreateStore(time);
+        var scope = Writable(Key());
+        var source = await store.WriteAsync(scope, new NewMemoryEntry("note", "source", ["alice", "project-1"]));
+        time.Advance(TimeSpan.FromMinutes(1));
+        var summary = await store.WriteSummaryAsync(scope, new NewMemoryEntry("summary", "short", ["digest"]), [source.Id]);
+
+        await using var context = this.database.CreateContext();
+        var entries = await context.Entries.AsNoTracking().ToDictionaryAsync(row => row.Id, row => row.CreatedAt);
+        var tags = await context.Set<MemoryEntryTagEntity>().AsNoTracking().ToListAsync();
+        var sources = await context.Set<MemoryEntrySummarySourceEntity>().AsNoTracking().ToListAsync();
+
+        Assert.Equal(source.WrittenAt, entries[source.Id]);
+        Assert.Equal(summary.WrittenAt, entries[summary.Id]);
+        Assert.Equal(3, tags.Count);
+        Assert.All(tags, tag => Assert.Equal(entries[tag.EntryId], tag.CreatedAt));
+        Assert.Equal(summary.WrittenAt, Assert.Single(sources).CreatedAt);
     }
 
     /// <inheritdoc />

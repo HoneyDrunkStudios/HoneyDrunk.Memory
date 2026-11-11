@@ -23,16 +23,16 @@ internal static class MemoryEntryRows
             AgentId = home.AgentId,
             Kind = entry.Kind,
             Content = entry.Content,
-            WrittenAt = writtenAt,
+            CreatedAt = writtenAt,
         };
         for (var i = 0; i < entry.Tags.Count; i++)
         {
-            row.Tags.Add(new MemoryEntryTagEntity { EntryId = id, Ordinal = (byte)i, Tag = entry.Tags[i] });
+            row.Tags.Add(new MemoryEntryTagEntity { EntryId = id, Ordinal = (byte)i, Tag = entry.Tags[i], CreatedAt = writtenAt });
         }
 
         for (var i = 0; i < summaryOf.Count; i++)
         {
-            row.SummarySources.Add(new MemoryEntrySummarySourceEntity { SummaryEntryId = id, Ordinal = i, SourceEntryId = summaryOf[i] });
+            row.SummarySources.Add(new MemoryEntrySummarySourceEntity { SummaryEntryId = id, Ordinal = i, SourceEntryId = summaryOf[i], CreatedAt = writtenAt });
         }
 
         return row;
@@ -48,7 +48,7 @@ internal static class MemoryEntryRows
             row.Kind,
             row.Content,
             Array.AsReadOnly(row.Tags.OrderBy(tag => tag.Ordinal).Select(tag => tag.Tag).ToArray()),
-            row.WrittenAt,
+            row.CreatedAt,
             EmbeddingModelId: null,
             Array.AsReadOnly(row.SummarySources.OrderBy(source => source.Ordinal).Select(source => source.SourceEntryId).ToArray()),
             row.SupersededByEntryId);

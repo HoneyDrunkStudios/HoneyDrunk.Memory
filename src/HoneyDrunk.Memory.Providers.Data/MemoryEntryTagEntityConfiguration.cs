@@ -14,6 +14,7 @@ internal sealed class MemoryEntryTagEntityConfiguration : IEntityTypeConfigurati
         builder.Property(row => row.EntryId).HasMaxLength(MemoryIds.EntryIdLength).IsFixedLength().IsUnicode(false).IsRequired();
         builder.Property(row => row.Ordinal).IsRequired();
         builder.Property(row => row.Tag).HasMaxLength(64).IsUnicode().IsRequired();
+        builder.Property(row => row.CreatedAt).StoredAsUtc().IsRequired();
         builder.HasIndex(row => new { row.EntryId, row.Tag }).IsUnique().HasDatabaseName("UQ_EntryTag_EntryId_Tag");
     }
 }

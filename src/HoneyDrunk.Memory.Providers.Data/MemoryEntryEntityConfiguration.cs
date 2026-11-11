@@ -21,14 +21,11 @@ internal sealed class MemoryEntryEntityConfiguration : IEntityTypeConfiguration<
         builder.Property(row => row.Kind).HasMaxLength(32).IsUnicode(false).IsRequired();
         builder.Property(row => row.Content).HasMaxLength(MaxContentLength).IsUnicode().IsRequired();
 
-        // A UTC DateTime compares and orders in SQL on every provider; DateTimeOffset does not on SQLite.
-        builder.Property(row => row.WrittenAt)
-            .HasConversion(value => value.UtcDateTime, value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)))
-            .IsRequired();
+        builder.Property(row => row.CreatedAt).StoredAsUtc().IsRequired();
         builder.Property(row => row.SupersededByEntryId).HasMaxLength(MemoryIds.EntryIdLength).IsFixedLength().IsUnicode(false);
-        builder.HasIndex(row => new { row.TenantId, row.ProjectId, row.AgentId, row.WrittenAt, row.Id })
+        builder.HasIndex(row => new { row.TenantId, row.ProjectId, row.AgentId, row.CreatedAt, row.Id })
             .IsDescending(false, false, false, true, true)
-            .HasDatabaseName("IX_Entry_TenantId_ProjectId_AgentId_WrittenAt_Id");
+            .HasDatabaseName("IX_Entry_TenantId_ProjectId_AgentId_CreatedAt_Id");
         builder.HasMany(row => row.Tags)
             .WithOne()
             .HasForeignKey(tag => tag.EntryId)

@@ -14,6 +14,7 @@ internal sealed class MemoryEntrySummarySourceEntityConfiguration : IEntityTypeC
         builder.Property(row => row.SummaryEntryId).HasMaxLength(MemoryIds.EntryIdLength).IsFixedLength().IsUnicode(false).IsRequired();
         builder.Property(row => row.Ordinal).IsRequired();
         builder.Property(row => row.SourceEntryId).HasMaxLength(MemoryIds.EntryIdLength).IsFixedLength().IsUnicode(false).IsRequired();
+        builder.Property(row => row.CreatedAt).StoredAsUtc().IsRequired();
         builder.HasIndex(row => new { row.SummaryEntryId, row.SourceEntryId }).IsUnique().HasDatabaseName("UQ_EntrySummarySource_SummaryEntryId_SourceEntryId");
     }
 }
