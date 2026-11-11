@@ -27,7 +27,7 @@ jobs:
     if: needs.preflight.outputs['project-exists'] == 'true'
     uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/nightly-security.yml@main
     with:
-      dotnet-version: '10.0.x'
+      dotnet-version: '11.0.100'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
       project-path: './HoneyDrunk.Memory.slnx'
