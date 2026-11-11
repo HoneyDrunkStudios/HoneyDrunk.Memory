@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [ main ]
     paths:
+      - 'global.json'
+      - 'Directory.Build.props'
+      - '.github/workflows/api-compatibility.yml'
       - 'src/HoneyDrunk.Memory.Abstractions/**'
       - 'api/**'
       - 'tests/HoneyDrunk.Memory.Abstractions.Tests/**'
@@ -15,8 +18,10 @@ permissions:
 jobs:
   abstractions-shape:
     name: Abstractions Shape
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-api-compatibility.yml@main
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-api-compatibility.yml@678aa08e4242b665e40b32a97833f969bc083af0
     with:
+      actions-ref: '678aa08e4242b665e40b32a97833f969bc083af0'
+      dotnet-version: '11.0.100'
       project-path: src/HoneyDrunk.Memory.Abstractions/HoneyDrunk.Memory.Abstractions.csproj
 
   contract-shape:
@@ -30,6 +35,6 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.100
       - name: Check the frozen contract shape
         run: dotnet test tests/HoneyDrunk.Memory.Abstractions.Tests -c Release --filter Category=ContractShape

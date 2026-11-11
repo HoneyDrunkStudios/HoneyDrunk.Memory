@@ -4,6 +4,10 @@ The agent-memory substrate of the HoneyDrunk Grid (ADR-0022). It stores what an 
 
 Execution-scoped state (the turns and tool calls of one running execution) is not stored here; it lives with the agent runtime and is disposed with the execution.
 
+## SDK requirement
+
+Build and test with the .NET 11 SDK selected by `global.json`. Runtime packages target `net11.0`; consuming applications must also target .NET 11 or later. The contracts-only Abstractions package targets both `net10.0` and `net11.0` to preserve existing contract consumers.
+
 ## Packages
 
 | Package | Purpose |

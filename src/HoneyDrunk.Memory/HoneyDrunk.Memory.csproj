@@ -15,9 +15,6 @@
     <PackageReference Include="HoneyDrunk.Auth.Abstractions" Version="0.6.2" />
     <PackageReference Include="HoneyDrunk.Kernel.Abstractions" Version="0.8.2" />
     <PackageReference Include="HoneyDrunk.Operator.Abstractions" Version="0.1.2" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.14" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
