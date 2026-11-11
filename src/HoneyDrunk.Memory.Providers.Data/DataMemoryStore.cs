@@ -63,13 +63,25 @@ public sealed class DataMemoryStore : IMemoryStore
     }
 
     /// <inheritdoc />
-    public Task<MemoryEntry> WriteSummaryAsync(IMemoryScope scope, NewMemoryEntry summary, IReadOnlyList<string> supersededIds, CancellationToken cancellationToken = default)
+    public async Task<MemoryEntry> WriteSummaryAsync(IMemoryScope scope, NewMemoryEntry summary, IReadOnlyList<string> supersededIds, CancellationToken cancellationToken = default)
     {
         RequireWritable(scope);
         ArgumentNullException.ThrowIfNull(summary);
         ArgumentNullException.ThrowIfNull(supersededIds);
         cancellationToken.ThrowIfCancellationRequested();
-        throw new NotImplementedException();
+        if (supersededIds.Count == 0 || supersededIds.Distinct(StringComparer.Ordinal).Count() != supersededIds.Count)
+        {
+            throw new ArgumentException("A summary supersedes one or more distinct entries.", nameof(supersededIds));
+        }
+
+        var sources = supersededIds.ToArray();
+        var writtenAt = this.timeProvider.GetUtcNow();
+        var id = MemoryIds.NewEntryId(writtenAt);
+        var stored = sources.All(MemoryIds.IsEntryId)
+            && await this.entries.InsertSummaryAsync(scope.Home, MemoryEntryRows.ToEntity(id, scope.Home, summary, writtenAt, sources), sources, cancellationToken).ConfigureAwait(false);
+        return stored
+            ? new MemoryEntry(id, scope.Home, summary.Kind, summary.Content, summary.Tags, writtenAt, EmbeddingModelId: null, Array.AsReadOnly(sources), SupersededBy: null)
+            : throw new ArgumentException("Every superseded entry must exist in the home scope and not already be superseded.", nameof(supersededIds));
     }
 
     /// <inheritdoc />

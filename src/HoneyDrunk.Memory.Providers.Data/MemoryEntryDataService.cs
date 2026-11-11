@@ -103,6 +103,50 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
         return winners.Where(winner => rows.ContainsKey(winner.id)).Select(winner => rows[winner.id]).ToArray();
     }
 
+    /// <summary>
+    /// Stores a summary entry and marks its sources superseded, in one transaction. The sources are
+    /// claimed by one conditional update, so two hosts that claim the same source cannot both count
+    /// it. When any source is missing, in another key or already superseded, the claim is rolled
+    /// back and nothing is stored.
+    /// </summary>
+    /// <param name="home">The home key.</param>
+    /// <param name="summary">The summary row, with its tags and its source rows.</param>
+    /// <param name="supersededIds">The well-formed, distinct ids of the entries the summary replaces.</param>
+    /// <param name="cancellationToken">A token to observe for cancellation.</param>
+    /// <returns><see langword="true"/> when the summary was stored; <see langword="false"/> when a source was unavailable.</returns>
+    public async Task<bool> InsertSummaryAsync(MemoryScopeKey home, MemoryEntryEntity summary, IReadOnlyList<string> supersededIds, CancellationToken cancellationToken)
+    {
+        var ids = supersededIds.ToArray();
+        await using var context = await this.contexts.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await MemoryUnitOfWork.RunAsync(
+                context,
+                async token =>
+                {
+                    var claimed = await InKey(context.Entries, home)
+                        .Where(row => ids.Contains(row.Id) && row.SupersededByEntryId == null)
+                        .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.SupersededByEntryId, summary.Id), token)
+                        .ConfigureAwait(false);
+                    if (claimed != ids.Length)
+                    {
+                        // The unit of work commits whenever the work returns, so the claim is undone by throwing.
+                        throw new SummarySourcesUnavailableException();
+                    }
+
+                    context.Entries.Add(summary);
+                    await context.SaveChangesAsync(token).ConfigureAwait(false);
+                    return true;
+                },
+                token => InKey(context.Entries.AsNoTracking(), home).AnyAsync(row => row.Id == summary.Id, token),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (SummarySourcesUnavailableException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Deletes one entry from the home key; its tags and summary sources go with it.</summary>
     /// <param name="home">The home key.</param>
     /// <param name="entryId">A well-formed entry id.</param>
@@ -165,4 +209,29 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
 
     private static IQueryable<MemoryEntryEntity> WithChildren(IQueryable<MemoryEntryEntity> source) =>
         source.Include(row => row.Tags).Include(row => row.SummarySources).AsSplitQuery().AsNoTracking();
+
+    /// <summary>Rolls back a summary whose sources could not all be claimed. It never leaves this class.</summary>
+    private sealed class SummarySourcesUnavailableException : Exception
+    {
+        /// <summary>Initializes a new instance of the <see cref="SummarySourcesUnavailableException"/> class.</summary>
+        public SummarySourcesUnavailableException()
+            : base("A summary source was missing, in another key or already superseded.")
+        {
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="SummarySourcesUnavailableException"/> class.</summary>
+        /// <param name="message">The message.</param>
+        public SummarySourcesUnavailableException(string message)
+            : base(message)
+        {
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="SummarySourcesUnavailableException"/> class.</summary>
+        /// <param name="message">The message.</param>
+        /// <param name="innerException">The inner exception.</param>
+        public SummarySourcesUnavailableException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
+    }
 }
