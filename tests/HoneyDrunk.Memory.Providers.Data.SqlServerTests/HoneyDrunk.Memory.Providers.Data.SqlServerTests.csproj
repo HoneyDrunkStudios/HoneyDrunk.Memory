@@ -10,6 +10,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+    <Compile Include="..\HoneyDrunk.Memory.Providers.Data.Tests\ReadConsistencyContract.cs" Link="Shared\ReadConsistencyContract.cs" />
+    <Compile Include="..\HoneyDrunk.Memory.Providers.Data.Tests\RunBeforeFirst.cs" Link="Shared\RunBeforeFirst.cs" />
     <None Include="..\..\src\HoneyDrunk.Memory.Providers.Data\Sql\*.sql" Link="Sql\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>

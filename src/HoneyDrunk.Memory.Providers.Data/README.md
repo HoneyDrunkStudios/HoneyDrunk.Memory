@@ -40,7 +40,7 @@ Three tables in a schema of their own, `memory`.
 - Entry content is 1 to 16,000 characters, as the contract requires. `MemoryEntry.EmbeddingModelId` is always `null`: no embedding is stored yet.
 - Deleting a summary does not bring its sources back; they keep its id and stay hidden from default reads. This is the in-memory provider's behavior too.
 - `AddMemoryDataProvider` registers the context through `AddHoneyDrunkDataEntityFramework`, with HoneyDrunk.Data's correlation interceptor off. It never takes HoneyDrunk.Data's non-generic `IUnitOfWork` or `IUnitOfWorkFactory`: those stay with the host's own context, whichever is registered first.
-- A read can return fewer entries than its limit when another host deletes or supersedes entries while it runs. A short page is not proof that nothing older is left.
+- A read takes several statements. An entry that another host deletes or supersedes while it runs comes back whole or not at all, never without its tags. So a read can return fewer entries than its limit; a short page is not proof that nothing older is left.
 - Known limit: content must be well-formed text. An unpaired surrogate (for example an emoji cut in half at the length limit) is stored as U+FFFD by the SQL Server client; everything else, a null character included, comes back verbatim.
 - Known limit: a delete that is retried after a lost reply reports what the retry removed, which can be nothing, although the rows are gone.
 

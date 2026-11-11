@@ -48,11 +48,10 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
     public async Task<MemoryEntryEntity?> FindAsync(IReadOnlyList<MemoryScopeKey> readable, string entryId, CancellationToken cancellationToken)
     {
         await using var context = await this.contexts.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        string[] ids = [entryId];
         foreach (var key in readable.Distinct())
         {
-            var found = await WithChildren(InKey(context.Entries, key).Where(row => row.Id == entryId))
-                .ToListAsync(cancellationToken)
-                .ConfigureAwait(false);
+            var found = await LoadAsync(context, key, ids, entries => entries, cancellationToken).ConfigureAwait(false);
             if (found.Count > 0)
             {
                 return found[0];
@@ -78,7 +77,7 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
         var candidates = new List<(int key, string id, DateTimeOffset writtenAt)>();
         for (var i = 0; i < keys.Length; i++)
         {
-            var newest = await Filtered(context, keys[i], query)
+            var newest = await Filter(InKey(context.Entries, keys[i]), query)
                 .OrderByDescending(row => row.WrittenAt)
                 .ThenByDescending(row => row.Id)
                 .Take(query.Limit)
@@ -97,16 +96,14 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
         foreach (var group in winners.GroupBy(winner => winner.key))
         {
             var ids = group.Select(winner => winner.id).ToArray();
-            var loaded = await WithChildren(Filtered(context, keys[group.Key], query).Where(row => ids.Contains(row.Id)))
-                .ToListAsync(cancellationToken)
-                .ConfigureAwait(false);
+            var loaded = await LoadAsync(context, keys[group.Key], ids, entries => Filter(entries, query), cancellationToken).ConfigureAwait(false);
             foreach (var row in loaded)
             {
                 rows[row.Id] = row;
             }
         }
 
-        // An entry deleted or superseded between the two steps is simply not returned.
+        // An entry deleted or superseded while the read runs is simply not returned.
         return winners.Where(winner => rows.ContainsKey(winner.id)).Select(winner => rows[winner.id]).ToArray();
     }
 
@@ -191,9 +188,8 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
         return source.Where(row => row.TenantId == tenantId && row.ProjectId == projectId && row.AgentId == agentId);
     }
 
-    private static IQueryable<MemoryEntryEntity> Filtered(MemoryDbContext context, MemoryScopeKey key, MemoryQuery query)
+    private static IQueryable<MemoryEntryEntity> Filter(IQueryable<MemoryEntryEntity> source, MemoryQuery query)
     {
-        var source = InKey(context.Entries, key);
         if (!query.IncludeSuperseded)
         {
             source = source.Where(row => row.SupersededByEntryId == null);
@@ -225,8 +221,34 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
     /// </summary>
     private static DbUpdateException WithoutEntries(DbUpdateException error) => new(error.Message, error.InnerException);
 
-    private static IQueryable<MemoryEntryEntity> WithChildren(IQueryable<MemoryEntryEntity> source) =>
-        source.Include(row => row.Tags).Include(row => row.SummarySources).AsSplitQuery().AsNoTracking();
+    /// <summary>
+    /// Loads entries of one key by id, with their tags and summary sources. The children are read
+    /// first, by key and id only, and the entries last. Child rows never change and are deleted only
+    /// with their entry, so an entry that is still there when it is read always has all of them, and
+    /// an entry that another host deleted or filtered out meanwhile is not returned at all. Reading
+    /// the entry first could return it without its tags.
+    /// </summary>
+    private static async Task<List<MemoryEntryEntity>> LoadAsync(
+        MemoryDbContext context,
+        MemoryScopeKey key,
+        string[] ids,
+        Func<IQueryable<MemoryEntryEntity>, IQueryable<MemoryEntryEntity>> filter,
+        CancellationToken cancellationToken)
+    {
+        var owners = InKey(context.Entries, key).Where(row => ids.Contains(row.Id));
+        var tags = await owners.SelectMany(row => row.Tags).AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+        var sources = await owners.SelectMany(row => row.SummarySources).AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await filter(owners).AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+        var tagsByEntry = tags.ToLookup(tag => tag.EntryId, StringComparer.Ordinal);
+        var sourcesByEntry = sources.ToLookup(source => source.SummaryEntryId, StringComparer.Ordinal);
+        foreach (var row in rows)
+        {
+            row.Tags.AddRange(tagsByEntry[row.Id]);
+            row.SummarySources.AddRange(sourcesByEntry[row.Id]);
+        }
+
+        return rows;
+    }
 
     /// <summary>Rolls back a summary whose sources could not all be claimed. It never leaves this class.</summary>
     private sealed class SummarySourcesUnavailableException : Exception
