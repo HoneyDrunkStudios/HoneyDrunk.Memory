@@ -1,4 +1,5 @@
 using HoneyDrunk.Memory.Abstractions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 using static HoneyDrunk.Memory.Providers.Contract.TestScopes;
@@ -40,7 +41,9 @@ public sealed class IsolationTests : IDisposable
         Assert.Contains(statements, text => text.Contains("DELETE", StringComparison.Ordinal));
         Assert.Contains(statements, text => text.Contains("\"EntryTag\"", StringComparison.Ordinal));
         Assert.Contains(statements, text => text.Contains("\"EntrySummarySource\"", StringComparison.Ordinal));
-        Assert.All(statements, text => Assert.All(ScopeColumns, column => Assert.Contains(column, text, StringComparison.Ordinal)));
+
+        // A SELECT that loads entries lists these columns anyway, so the proof is the comparison with a parameter.
+        Assert.All(statements, text => Assert.All(ScopeColumns, column => Assert.Contains(column + " = @", text, StringComparison.Ordinal)));
     }
 
     /// <summary>A read across several keys loads content only for the entries it returns.</summary>
@@ -72,19 +75,31 @@ public sealed class IsolationTests : IDisposable
         Assert.All(log.Commands.Where(text => text.Contains("LIMIT", StringComparison.Ordinal)), text => Assert.DoesNotContain("\"Content\"", text, StringComparison.Ordinal));
     }
 
-    /// <summary>A write that the database refuses says so without repeating the content or a tag.</summary>
+    /// <summary>
+    /// A write or a summary that the database refuses says so without the content or a tag: not in its
+    /// text, and not as the entities Entity Framework attaches to the error.
+    /// </summary>
     /// <returns>A task.</returns>
     [Fact]
     public async Task A_failed_write_carries_no_content()
     {
+        var scope = Writable(Key());
+        var source = await this.database.CreateStore(this.time).WriteAsync(scope, new NewMemoryEntry("note", "source", []));
         var fail = new FailInsertInto("Entry") { Armed = true };
         var store = this.database.CreateStore(this.time, fail);
 
-        var error = await Assert.ThrowsAnyAsync<Exception>(() => store.WriteAsync(Writable(Key()), new NewMemoryEntry("note", "SECRET-CONTENT-4471", ["secret-tag-4471"])));
+        var write = await Assert.ThrowsAsync<DbUpdateException>(() => store.WriteAsync(scope, new NewMemoryEntry("note", "SECRET-CONTENT-4471", ["secret-tag-4471"])));
+        var summary = await Assert.ThrowsAsync<DbUpdateException>(() => store.WriteSummaryAsync(scope, new NewMemoryEntry("summary", "SECRET-CONTENT-4471", ["secret-tag-4471"]), [source.Id]));
 
-        Assert.DoesNotContain("SECRET-CONTENT-4471", error.ToString(), StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("secret-tag-4471", error.ToString(), StringComparison.OrdinalIgnoreCase);
-        Assert.Empty(await this.database.CreateStore(this.time).ReadAsync(Writable(Key()), new MemoryQuery()));
+        foreach (var error in new[] { write, summary })
+        {
+            Assert.Empty(error.Entries);
+            Assert.Contains("insert into Entry failed", error.InnerException!.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("SECRET-CONTENT-4471", error.ToString(), StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("secret-tag-4471", error.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.Equal([source.Id], (await this.database.CreateStore(this.time).ReadAsync(scope, new MemoryQuery())).Select(entry => entry.Id));
     }
 
     /// <inheritdoc />

@@ -21,16 +21,23 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
     public async Task InsertAsync(MemoryScopeKey home, MemoryEntryEntity entry, CancellationToken cancellationToken)
     {
         await using var context = await this.contexts.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        await MemoryUnitOfWork.RunAsync(
-            context,
-            async token =>
-            {
-                context.Entries.Add(entry);
-                await context.SaveChangesAsync(token).ConfigureAwait(false);
-                return true;
-            },
-            token => InKey(context.Entries.AsNoTracking(), home).AnyAsync(row => row.Id == entry.Id, token),
-            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await MemoryUnitOfWork.RunAsync(
+                context,
+                async token =>
+                {
+                    context.Entries.Add(entry);
+                    await context.SaveChangesAsync(token).ConfigureAwait(false);
+                    return true;
+                },
+                token => InKey(context.Entries.AsNoTracking(), home).AnyAsync(row => row.Id == entry.Id, token),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateException error)
+        {
+            throw WithoutEntries(error);
+        }
     }
 
     /// <summary>Finds one entry by id under any of the readable keys.</summary>
@@ -145,6 +152,10 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
         {
             return false;
         }
+        catch (DbUpdateException error)
+        {
+            throw WithoutEntries(error);
+        }
     }
 
     /// <summary>Deletes one entry from the home key; its tags and summary sources go with it.</summary>
@@ -206,6 +217,13 @@ internal sealed class MemoryEntryDataService(IDbContextFactory<MemoryDbContext> 
 
         return source;
     }
+
+    /// <summary>
+    /// Entity Framework attaches the entities it could not save to the error, and an entry's entity
+    /// holds its content and tags. The error that leaves this class keeps the message and the cause
+    /// and drops the entities, so memory content cannot reach a log through an exception.
+    /// </summary>
+    private static DbUpdateException WithoutEntries(DbUpdateException error) => new(error.Message, error.InnerException);
 
     private static IQueryable<MemoryEntryEntity> WithChildren(IQueryable<MemoryEntryEntity> source) =>
         source.Include(row => row.Tags).Include(row => row.SummarySources).AsSplitQuery().AsNoTracking();

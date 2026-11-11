@@ -66,6 +66,26 @@ public sealed class SqlServerDataMemoryStoreTests : MemoryStoreContract, IDispos
         }
     }
 
+    /// <summary>
+    /// A null character in content is kept. An unpaired surrogate, which is not valid text, is the one
+    /// thing that does not come back verbatim: the SQL Server client stores U+FFFD in its place.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Fact]
+    public async Task Content_keeps_a_null_character_and_replaces_an_unpaired_surrogate()
+    {
+        var valid = "before\0after " + new string('x', 16_000 - 14);
+        var scope = Writable(Key());
+        var store = this.CreateStore(this.Time);
+
+        var written = await store.WriteAsync(scope, new NewMemoryEntry("note", valid + "\ud83d", []));
+
+        var stored = (await this.CreateStore(this.Time).GetAsync(scope, written.Id))!.Content;
+        Assert.Equal(16_000, stored.Length);
+        Assert.Equal(valid, stored[..^1]);
+        Assert.Contains(stored[^1], new[] { '\ud83d', '\ufffd' });
+    }
+
     /// <inheritdoc />
     public void Dispose() => this.database.Dispose();
 

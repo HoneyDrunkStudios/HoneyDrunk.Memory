@@ -1,4 +1,7 @@
 using HoneyDrunk.Auth.Abstractions;
+using HoneyDrunk.Data.Abstractions.Diagnostics;
+using HoneyDrunk.Data.Abstractions.Transactions;
+using HoneyDrunk.Data.EntityFramework.Registration;
 using HoneyDrunk.Kernel.Abstractions.Telemetry;
 using HoneyDrunk.Memory.Abstractions;
 using HoneyDrunk.Memory.Canary;
@@ -72,6 +75,57 @@ public sealed class RegistrationTests : IDisposable
         Assert.Empty(await this.database.CreateStore(this.time).ReadAsync(Writable(Key()), new MemoryQuery()));
     }
 
+    /// <summary>
+    /// A host that registers HoneyDrunk.Data's scoped diagnostics context and validates scopes can still
+    /// use the store: the provider's singleton options never ask for a scoped service.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Fact]
+    public async Task A_scoped_diagnostics_context_does_not_break_scope_validation()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<TimeProvider>(this.time);
+        services.AddScoped<IDataDiagnosticsContext>(_ => new FixedDiagnosticsContext());
+        services.AddMemoryDataProvider(options => this.database.Configure(options));
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        var written = await provider.GetRequiredService<DataMemoryStore>().WriteAsync(Writable(Key()), new NewMemoryEntry("note", "validated", []));
+
+        Assert.Equal("validated", (await this.database.CreateStore(this.time).GetAsync(Writable(Key()), written.Id))!.Content);
+    }
+
+    /// <summary>
+    /// The provider never takes HoneyDrunk.Data's non-generic unit of work for its own context: a host
+    /// that registers its context later still gets its own, and saves through it.
+    /// </summary>
+    /// <param name="hostFirst">Whether the host registers its context before the provider.</param>
+    /// <returns>A task.</returns>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_host_context_owns_the_unit_of_work_in_either_order(bool hostFirst)
+    {
+        var services = new ServiceCollection();
+        if (hostFirst)
+        {
+            services.AddHoneyDrunkDataEntityFramework<HostDbContext>(options => this.database.Configure(options));
+            services.AddMemoryDataProvider(options => this.database.Configure(options));
+        }
+        else
+        {
+            services.AddMemoryDataProvider(options => this.database.Configure(options));
+            Assert.DoesNotContain(services, descriptor => descriptor.ServiceType == typeof(IUnitOfWork) || descriptor.ServiceType == typeof(IUnitOfWorkFactory));
+            services.AddHoneyDrunkDataEntityFramework<HostDbContext>(options => this.database.Configure(options));
+        }
+
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+
+        Assert.IsAssignableFrom<IUnitOfWork<HostDbContext>>(scope.ServiceProvider.GetRequiredService<IUnitOfWork>());
+        Assert.Equal([typeof(HostDbContext)], provider.GetRequiredService<IUnitOfWorkFactory>().GetType().GenericTypeArguments);
+        Assert.NotNull(provider.GetRequiredService<DataMemoryStore>());
+    }
+
     /// <summary>Entries, tags, summaries and the read order are the same from a new host over the same database.</summary>
     /// <returns>A task.</returns>
     [Fact]
@@ -141,5 +195,22 @@ public sealed class RegistrationTests : IDisposable
             extra?.Invoke(options);
         });
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+
+    /// <summary>A context a host owns, registered beside the provider's.</summary>
+    /// <param name="options">The context options.</param>
+    public sealed class HostDbContext(DbContextOptions<HostDbContext> options) : DbContext(options)
+    {
+    }
+
+    private sealed class FixedDiagnosticsContext : IDataDiagnosticsContext
+    {
+        public string? CorrelationId => "correlation-1";
+
+        public string? OperationId => "operation-1";
+
+        public string? NodeId => "node-1";
+
+        public IReadOnlyDictionary<string, string> Tags { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
     }
 }

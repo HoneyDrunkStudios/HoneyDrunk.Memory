@@ -1,3 +1,4 @@
+using HoneyDrunk.Data.Abstractions.Transactions;
 using HoneyDrunk.Data.EntityFramework.Registration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -27,12 +28,33 @@ public static class MemoryDataServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configureDbContext);
-        services.AddHoneyDrunkDataEntityFramework<MemoryDbContext>(options =>
-        {
-            configureDbContext(options);
-            RefuseSensitiveDataLogging(options);
-        });
+        var hostOwnsUnitOfWork = services.Any(descriptor => descriptor.ServiceType == typeof(IUnitOfWork));
+        var hostOwnsUnitOfWorkFactory = services.Any(descriptor => descriptor.ServiceType == typeof(IUnitOfWorkFactory));
+
+        // The correlation interceptor is off: it reads a scoped diagnostics context, which the
+        // singleton options cannot resolve in a host that validates scopes.
+        services.AddHoneyDrunkDataEntityFramework<MemoryDbContext>(
+            options =>
+            {
+                configureDbContext(options);
+                RefuseSensitiveDataLogging(options);
+            },
+            efOptions => efOptions.EnableCorrelationInterceptor = false);
         KeepOptionsConfigurationSingleton(services);
+
+        // HoneyDrunk.Data gives its non-generic unit of work to the first context registered. That
+        // must never be the memory context: a host that registers its own context later would save
+        // through the wrong one, silently, and would hold a handle on the memory tables.
+        if (!hostOwnsUnitOfWork)
+        {
+            services.RemoveAll<IUnitOfWork>();
+        }
+
+        if (!hostOwnsUnitOfWorkFactory)
+        {
+            services.RemoveAll<IUnitOfWorkFactory>();
+        }
+
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<MemoryEntryDataService>();
 

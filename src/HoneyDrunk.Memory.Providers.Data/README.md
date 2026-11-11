@@ -32,14 +32,16 @@ Three tables in a schema of their own, `memory`.
 - **Isolation.** Every statement names the tenant, the project and the agent. An entry in another key is never returned, deleted or superseded.
 - **Bounded reads.** Tag, kind and time filters, the order and the limit run in SQL. A read across several keys loads content only for the entries it returns.
 - **Atomic summaries.** A summary and the supersession of its sources are one transaction. The sources are claimed by one conditional update, so two hosts that summarize the same entry cannot both count it; the loser is refused and changes nothing.
-- **Retries.** Writes run under the database provider's execution strategy. A write whose commit succeeded but whose reply was lost is not applied twice.
-- **No content in logs.** The package has no logger and starts no activity. A context configured with `EnableSensitiveDataLogging` is refused with `InvalidOperationException`, because Entity Framework would then write memory content into logs.
+- **Retries.** Writes run under the database provider's execution strategy. When the host configures a retrying strategy (for example `EnableRetryOnFailure`), a write whose commit succeeded but whose reply was lost is not applied twice: the retry finds the entry by its id. Without a retrying strategy that error reaches the caller although the entry is stored, and a caller that writes again stores a second entry.
+- **No content in logs.** The package has no logger and starts no activity. A context configured with `EnableSensitiveDataLogging` is refused with `InvalidOperationException`, because Entity Framework would then write memory content into logs. A `DbUpdateException` from a failed write carries no entities.
 
 ## Notes for hosts
 
 - Entry content is 1 to 16,000 characters, as the contract requires. `MemoryEntry.EmbeddingModelId` is always `null`: no embedding is stored yet.
 - Deleting a summary does not bring its sources back; they keep its id and stay hidden from default reads. This is the in-memory provider's behavior too.
-- `AddMemoryDataProvider` registers the context through `AddHoneyDrunkDataEntityFramework`, which registers HoneyDrunk.Data's non-generic unit of work with `TryAdd`. A host that resolves the non-generic unit of work registers its own context first.
+- `AddMemoryDataProvider` registers the context through `AddHoneyDrunkDataEntityFramework`, with HoneyDrunk.Data's correlation interceptor off. It never takes HoneyDrunk.Data's non-generic `IUnitOfWork` or `IUnitOfWorkFactory`: those stay with the host's own context, whichever is registered first.
+- A read can return fewer entries than its limit when another host deletes or supersedes entries while it runs. A short page is not proof that nothing older is left.
+- Known limit: content must be well-formed text. An unpaired surrogate (for example an emoji cut in half at the length limit) is stored as U+FFFD by the SQL Server client; everything else, a null character included, comes back verbatim.
 - Known limit: a delete that is retried after a lost reply reports what the retry removed, which can be nothing, although the rows are gone.
 
 ## Tests

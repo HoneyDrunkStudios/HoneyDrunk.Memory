@@ -9,7 +9,7 @@ using static HoneyDrunk.Memory.Providers.Contract.TestScopes;
 
 namespace HoneyDrunk.Memory.Providers.Data.SqlServerTests;
 
-/// <summary>The shipped table scripts, deployed to SQL Server, against the mapping and the table rules.</summary>
+/// <summary>The shipped table scripts, deployed to SQL Server, against the mapping and the constraints they promise.</summary>
 public sealed class SqlServerSchemaTests : IDisposable
 {
     private const string EntryId = "0123456789abcdef0123456789abcdef";
@@ -43,6 +43,29 @@ public sealed class SqlServerSchemaTests : IDisposable
         Assert.Equal(14, mapped.Length);
         Assert.Equal(mapped, deployed.Order(StringComparer.Ordinal));
         Assert.Equal(["7"], await this.QueryAsync("SELECT CAST(DATETIME_PRECISION AS varchar(3)) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'memory' AND COLUMN_NAME = 'WrittenAt'"));
+    }
+
+    /// <summary>The index every read relies on is deployed with the mapped key order, directions and included columns.</summary>
+    /// <returns>A task.</returns>
+    [Fact]
+    public async Task Scope_index_is_deployed_as_mapped()
+    {
+        await using var context = this.database.CreateContext();
+        var mapped = context.GetService<IDesignTimeModel>().Model.GetEntityTypes().Single(type => type.GetTableName() == "Entry").GetIndexes().Single();
+        var expectedKeys = mapped.Properties.Select((property, i) => property.Name + (mapped.IsDescending![i] ? " DESC" : " ASC"));
+
+        var deployed = await this.QueryAsync(
+            """
+            SELECT CASE WHEN ic.is_included_column = 1 THEN 'include ' + c.name ELSE c.name + CASE WHEN ic.is_descending_key = 1 THEN ' DESC' ELSE ' ASC' END END AS Value
+            FROM sys.indexes i
+            JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+            JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+            WHERE i.name = 'IX_Entry_TenantId_ProjectId_AgentId_WrittenAt_Id' AND i.object_id = OBJECT_ID('memory.Entry')
+            ORDER BY ic.is_included_column, ic.key_ordinal, c.name
+            """);
+
+        Assert.Equal("IX_Entry_TenantId_ProjectId_AgentId_WrittenAt_Id", mapped.GetDatabaseName());
+        Assert.Equal([.. expectedKeys, "include Kind", "include SupersededByEntryId"], deployed);
     }
 
     /// <summary>All three tables and all fourteen columns carry a description that says more than the name.</summary>
