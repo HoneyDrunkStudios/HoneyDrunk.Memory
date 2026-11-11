@@ -1,0 +1,41 @@
+name: SQL Server (Data provider)
+
+# Deploys the table scripts the Data provider ships to a SQL Server LocalDB instance and runs the
+# store contract and the schema checks against them. The main solution's tests need no database.
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'global.json'
+      - 'Directory.Build.props'
+      - '.github/workflows/sqlserver.yml'
+      - 'src/HoneyDrunk.Memory.Abstractions/**'
+      - 'src/HoneyDrunk.Memory.Providers.Data/**'
+      - 'tests/HoneyDrunk.Memory.Providers.Data.SqlServerTests/**'
+      - 'tests/Shared/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sqlserver-contract:
+    name: Store Contract on SQL Server
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          dotnet-version: 11.0.100
+      - name: Start a LocalDB instance
+        run: sqllocaldb create MemoryProviderTests -s
+      - name: Run the store contract and schema checks on SQL Server
+        env:
+          HONEYDRUNK_MEMORY_TEST_SQLSERVER: 'Server=(localdb)\MemoryProviderTests;Integrated Security=true;Encrypt=false'
+        run: dotnet test tests/HoneyDrunk.Memory.Providers.Data.SqlServerTests -c Release
