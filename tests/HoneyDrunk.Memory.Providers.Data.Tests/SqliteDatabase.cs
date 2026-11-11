@@ -41,6 +41,20 @@ internal sealed class SqliteDatabase : IDisposable
         return new MemoryDbContext(options.Options);
     }
 
+    /// <summary>Creates a store over this file, built the way the registration builds it.</summary>
+    /// <param name="timeProvider">The clock.</param>
+    /// <param name="interceptors">Interceptors to attach to every context the store opens.</param>
+    /// <returns>The store.</returns>
+    public DataMemoryStore CreateStore(TimeProvider timeProvider, params IInterceptor[] interceptors) =>
+        this.CreateStore(timeProvider, options => this.Configure(options, interceptors));
+
+    /// <summary>Creates a store over a caller-configured context.</summary>
+    /// <param name="timeProvider">The clock.</param>
+    /// <param name="configure">Configures each context the store opens.</param>
+    /// <returns>The store.</returns>
+    public DataMemoryStore CreateStore(TimeProvider timeProvider, Action<DbContextOptionsBuilder> configure) =>
+        new(new MemoryEntryDataService(new ContextFactory(configure)), timeProvider);
+
     /// <inheritdoc />
     public void Dispose()
     {
@@ -51,6 +65,16 @@ internal sealed class SqliteDatabase : IDisposable
         catch (IOException)
         {
             // A connection is still closing on another thread; the temp folder is cleaned eventually.
+        }
+    }
+
+    private sealed class ContextFactory(Action<DbContextOptionsBuilder> configure) : IDbContextFactory<MemoryDbContext>
+    {
+        public MemoryDbContext CreateDbContext()
+        {
+            var options = new DbContextOptionsBuilder<MemoryDbContext>();
+            configure(options);
+            return new MemoryDbContext(options.Options);
         }
     }
 }
