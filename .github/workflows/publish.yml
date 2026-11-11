@@ -90,6 +90,7 @@ jobs:
         HoneyDrunk.Memory.Abstractions
         HoneyDrunk.Memory
         HoneyDrunk.Memory.Providers.InMemory
+        HoneyDrunk.Memory.Providers.Data
       release-docs-url: 'https://github.com/HoneyDrunkStudios/HoneyDrunk.Memory#readme'
       actions-ref: 'e3aa37c20dffe55155d95793465bcb6d94f280a2'
 
@@ -132,6 +133,7 @@ jobs:
           HoneyDrunk.Memory.Abstractions
           HoneyDrunk.Memory
           HoneyDrunk.Memory.Providers.InMemory
+          HoneyDrunk.Memory.Providers.Data
     - name: Generate release notes
       id: notes
       uses: ./.github/actions-repo/.github/actions/release/generate-notes
@@ -142,6 +144,7 @@ jobs:
           HoneyDrunk.Memory.Abstractions
           HoneyDrunk.Memory
           HoneyDrunk.Memory.Providers.InMemory
+          HoneyDrunk.Memory.Providers.Data
         docs-url: https://github.com/HoneyDrunkStudios/HoneyDrunk.Memory#readme
     - name: Create GitHub Release after successful publication
       uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64

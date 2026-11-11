@@ -15,6 +15,7 @@ Build and test with the .NET 11 SDK selected by `global.json`. Runtime packages 
 | `HoneyDrunk.Memory.Abstractions` | The contracts: `IMemoryStore`, `IMemoryScope`, `IMemorySummarizer`, `IMemoryScopeResolver`, `MemoryEntry` and the request and key records. Downstream nodes depend on this package only. It references only `HoneyDrunk.Kernel.Abstractions`. |
 | `HoneyDrunk.Memory` | The runtime: scope resolution gated by Auth and Operator, the scope-checked default store, the chat summarizer and DI registration. |
 | `HoneyDrunk.Memory.Providers.InMemory` | A deterministic in-memory store for tests and local development. Not for production composition. |
+| `HoneyDrunk.Memory.Providers.Data` | A durable store over HoneyDrunk.Data's Entity Framework layer: memory survives a restart and is shared by every host on one database. It ships the SQL Server scripts for its three tables. |
 
 ## Scopes
 
@@ -47,7 +48,14 @@ services.AddChatMemorySummarizer();
 
 The host supplies `IAuthorizationPolicy`, `IApprovalGate`, `ITelemetryActivityFactory`, `IChatClient` and logging. The provider is registered as its concrete type only; `IMemoryStore` always resolves to the scope-checked wrapper.
 
-The next provider, `HoneyDrunk.Memory.Providers.SqlServer` over HoneyDrunk.Data, is planned for a later release.
+For memory that survives a restart, compose the durable provider instead. It holds no database driver; the host chooses the database, and the host's database project carries the tables (see the [provider's README](src/HoneyDrunk.Memory.Providers.Data/README.md)):
+
+```csharp
+services.AddMemoryDataProvider(options => options.UseSqlServer(connectionString));
+services.AddHoneyDrunkMemory<DataMemoryStore>();
+```
+
+The in-memory provider stays the choice for tests and local development. Both providers pass the same store contract (`tests/Shared/MemoryStoreContract.cs`).
 
 ## Contract-shape canary
 
