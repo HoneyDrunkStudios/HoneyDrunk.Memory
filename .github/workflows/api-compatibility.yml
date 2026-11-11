@@ -18,9 +18,9 @@ permissions:
 jobs:
   abstractions-shape:
     name: Abstractions Shape
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-api-compatibility.yml@de51d34c6f2f6db2346275b6582c8863521a68ed
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-api-compatibility.yml@678aa08e4242b665e40b32a97833f969bc083af0
     with:
-      actions-ref: 'de51d34c6f2f6db2346275b6582c8863521a68ed'
+      actions-ref: '678aa08e4242b665e40b32a97833f969bc083af0'
       dotnet-version: '11.0.100'
       project-path: src/HoneyDrunk.Memory.Abstractions/HoneyDrunk.Memory.Abstractions.csproj
 
