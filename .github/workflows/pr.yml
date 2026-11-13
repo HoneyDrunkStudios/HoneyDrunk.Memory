@@ -23,6 +23,7 @@ jobs:
     needs: preflight
     if: needs.preflight.outputs['project-exists'] == 'true'
     permissions:
+      actions: read
       contents: read
       checks: write
       issues: write
