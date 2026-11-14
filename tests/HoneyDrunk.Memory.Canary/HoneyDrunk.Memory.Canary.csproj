@@ -7,9 +7,9 @@
   <ItemGroup>
     <PackageReference Include="HoneyDrunk.Standards" Version="0.4.4" PrivateAssets="all" />
     <PackageReference Include="HoneyDrunk.Standards.Tests" Version="0.4.4" PrivateAssets="all" />
-    <PackageReference Include="HoneyDrunk.Audit.Abstractions" Version="0.2.2" />
+    <PackageReference Include="HoneyDrunk.Audit.Abstractions" Version="0.3.0" />
     <PackageReference Include="HoneyDrunk.Auth" Version="0.6.2" />
-    <PackageReference Include="HoneyDrunk.Operator" Version="0.1.2" />
-    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
+    <PackageReference Include="HoneyDrunk.Operator" Version="0.3.0" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="11.0.0" />
   </ItemGroup>
 </Project>

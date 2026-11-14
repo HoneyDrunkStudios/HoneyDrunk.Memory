@@ -14,7 +14,7 @@
     <PackageReference Include="HoneyDrunk.AI.Abstractions" Version="0.2.2" />
     <PackageReference Include="HoneyDrunk.Auth.Abstractions" Version="0.6.2" />
     <PackageReference Include="HoneyDrunk.Kernel.Abstractions" Version="0.8.2" />
-    <PackageReference Include="HoneyDrunk.Operator.Abstractions" Version="0.1.2" />
+    <PackageReference Include="HoneyDrunk.Operator.Abstractions" Version="0.3.0" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
