@@ -5,6 +5,7 @@ using HoneyDrunk.Memory.Abstractions;
 using HoneyDrunk.Operator.Approval;
 using HoneyDrunk.Operator.Audit;
 using HoneyDrunk.Operator.Events;
+using HoneyDrunk.Operator.State;
 using HoneyDrunk.Operator.Telemetry;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -56,7 +57,9 @@ public sealed class AuthCanaryTests
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 11, 7, 9, 0, 0, TimeSpan.Zero));
         var policy = new DefaultAuthorizationPolicy(telemetry, this.audit, new FixedGridContextAccessor(), NullLogger<DefaultAuthorizationPolicy>.Instance);
         var operatorTelemetry = new OperatorTelemetry(telemetry);
-        var gate = new DefaultApprovalGate(new ApprovalEventEmitter(new NullApprovalEventSink(), operatorTelemetry), operatorTelemetry, new OperatorAuditWriter([]), time);
+        var store = new InMemoryOperatorStore();
+        var outbox = new OperatorAuditOutbox(store, new OperatorAuditWriter([]), time, NullLogger<OperatorAuditOutbox>.Instance);
+        var gate = new DefaultApprovalGate(new ApprovalEventEmitter(new NullApprovalEventSink(), operatorTelemetry), operatorTelemetry, outbox, time, store);
         return new MemoryScopeResolver(policy, gate, Options.Create(new MemoryAuthorizationOptions()), telemetry, time, NullLogger<MemoryScopeResolver>.Instance);
     }
 }
